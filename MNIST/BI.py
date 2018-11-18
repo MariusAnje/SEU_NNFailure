@@ -133,8 +133,8 @@ if __name__=='__main__':
     if args.evaluate:
         a = 0
         b = 0
-        two = []
-        ten = []
+        one = []
+        point = []
         with tqdm.tqdm(range(50*20*5*5)) as Loader:
             for i in Loader:
                 pretrained_model = torch.load(args.pretrained)
@@ -142,16 +142,16 @@ if __name__=='__main__':
                 model.load_state_dict(pretrained_model['state_dict'])
                 acc = test(i, evaluate=True)
 
-                if ( acc + 2) < 99.23:
-                    two += [str(i)]
+                if ( acc + 0.1) < 99.23:
+                    point += [acc]
                     a += 1
-                if (acc + 10) < 99.23:
+                if (acc + 1) < 99.23:
                     print (i)
-                    ten += [str(i)]
+                    one += [acc]
                 #a += acc
-                Loader.set_description("a: %d"%(a))
+                Loader.set_description("a: %d, b: %d"%(a, b))
         print (a)
         print (b)
-        Dict2File(two, 'two.txt')
-        Dict2File(ten, 'ten.txt')
+        Dict2File(point, 'point.txt')
+        Dict2File(one, 'one.txt')
         exit()
