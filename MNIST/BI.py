@@ -15,7 +15,7 @@ from torch.autograd import Variable
 import util
 
 def Dict2File(Dict, filename):
-    F = open(filename, 'w')
+    F = open(filename, 'a+')
     F.write(str(Dict))
     F.close()
 
@@ -28,14 +28,16 @@ def test(i, evaluate=False):
     bin_op.binarization()
     state_dict = model.state_dict()
     for key in state_dict.keys():
-        if key.find("conv.weight") != -1:
+        if key.find("ip2.weight") != -1:
             #print (state_dict[key].shape)
-            size1 = state_dict[key].shape[1]
-            size2 = state_dict[key].shape[2]
-            size3 = state_dict[key].shape[3]
-            (state_dict[key][i/size1/size2/size3][i/size2/size3%size1][i/size3%size2][i%size3]).mul_(-1)
+            #size1 = state_dict[key].shape[1]
+            #size2 = state_dict[key].shape[2]
+            #size3 = state_dict[key].shape[3]
+            #(state_dict[key][i/size1/size2/size3][i/size2/size3%size1][i/size3%size2][i%size3]).mul_(-1)
             #return ((state_dict[key][i/size1/size2/size3][i/size2/size3%size1][i/size3%size2][i%size3]) == state_dict[key].view(-1)[i]).float()
             #state_dict[key][i].mul_(-1)
+            size = state_dict[key].shape[1]
+            (state_dict[key][i/size][i%size]).mul_(-1)
  
     with torch.no_grad():
         for data, target in test_loader:
@@ -135,11 +137,12 @@ if __name__=='__main__':
         b = 0
         one = []
         point = []
-        with tqdm.tqdm(range(50*20*5*5)) as Loader:
+        with tqdm.tqdm(range(10*500)) as Loader:
             for i in Loader:
                 pretrained_model = torch.load(args.pretrained)
                 best_acc = pretrained_model['acc']
                 model.load_state_dict(pretrained_model['state_dict'])
+                bin_op = util.BinOp(model)
                 acc = test(i, evaluate=True)
 
                 if ( acc + 0.1) < 99.23:
@@ -148,6 +151,7 @@ if __name__=='__main__':
                 if (acc + 1) < 99.23:
                     print (i)
                     one += [acc]
+                    b += 1
                 #a += acc
                 Loader.set_description("a: %d, b: %d"%(a, b))
         print (a)
