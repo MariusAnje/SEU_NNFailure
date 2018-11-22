@@ -101,7 +101,7 @@ if __name__=='__main__':
                 ('Please assign the correct data path with --data <DATA_PATH>')
 
     testset = data.dataset(root=args.data, train=False)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=128,
+    testloader = torch.utils.data.DataLoader(testset, batch_size=512,
             shuffle=False, num_workers=4)
 
     # define classes
@@ -160,6 +160,8 @@ if __name__=='__main__':
         b = 0
         one = []
         point = []
+
+
         find_key = "6.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
@@ -174,11 +176,11 @@ if __name__=='__main__':
             for i in Loader:
                 acc = test(i, find_key)
 
-                if ( acc + 0.1) < 86.28:
-                    point += [acc]
+                if ( acc + 0.5) < 86.28:
+                    point += [i, acc]
                     a += 1
                 if (acc + 1) < 86.28:
-                    one += [acc]
+                    one += [i, acc]
                     b += 1
                 #a += acc
                 Loader.set_description("a: %d, b: %d"%(a, b))

@@ -59,3 +59,10 @@ xnor.12.num_batches_tracked ()
 xnor.13.weight (10, 192, 1, 1)
 xnor.13.bias (10,)
 """
+
+1. Why weights are more important than bias?
+    weights are multiplications
+    weights handle with inputs while bias are always the same for all data
+
+one   [conv1,1] [conv2, 0]
+	

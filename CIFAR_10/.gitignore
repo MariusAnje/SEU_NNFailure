@@ -1,3 +1,21 @@
 data
 data/
 *.tar
+*.pyc
+*.txt
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+
+# IPython checkpoints
+.ipynb_checkpoints/
+
+# Datasets
+data/
+
+# Tensorflow summaries
+summaries/
+
+# Model parameters
+checkpoints/
