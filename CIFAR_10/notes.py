@@ -1,5 +1,23 @@
 """
 xnor.0.weight (192, 3, 5, 5)
+xnor.3.conv.weight (160, 192, 1, 1)
+xnor.4.conv.weight (96, 160, 1, 1)
+xnor.6.conv.weight (192, 96, 5, 5)
+xnor.7.conv.weight (192, 192, 1, 1)
+xnor.8.conv.weight (192, 192, 1, 1)
+xnor.10.conv.weight (192, 192, 3, 3)
+xnor.11.conv.weight (192, 192, 1, 1)
+xnor.13.weight (10, 192, 1, 1)
+"""
+
+1. Why weights are more important than bias?
+    weights are multiplications
+    weights handle with inputs while bias are always the same for all data
+
+one   [conv1,1] [conv2, 0]
+
+"""
+xnor.0.weight (192, 3, 5, 5)
 xnor.0.bias (192,)
 xnor.1.running_mean (192,)
 xnor.1.running_var (192,)
@@ -59,10 +77,3 @@ xnor.12.num_batches_tracked ()
 xnor.13.weight (10, 192, 1, 1)
 xnor.13.bias (10,)
 """
-
-1. Why weights are more important than bias?
-    weights are multiplications
-    weights handle with inputs while bias are always the same for all data
-
-one   [conv1,1] [conv2, 0]
-	
