@@ -22,9 +22,15 @@ def Dict2File(Dict, filename):
 
 def test(i, find_key):
     global best_acc
-    model.eval()
     test_loss = 0
     correct = 0
+    model = nin.Net()
+    pretrained_model = torch.load(args.pretrained)
+    best_acc = pretrained_model['best_acc']
+    model.load_state_dict(pretrained_model['state_dict'])
+    model.to(device)
+    bin_op = util.BinOp(model)
+    model.eval()
     bin_op.binarization()
     state_dict = model.state_dict()
     
@@ -34,7 +40,10 @@ def test(i, find_key):
                 size1 = state_dict[key].shape[1]
                 size2 = state_dict[key].shape[2]
                 size3 = state_dict[key].shape[3]
-                (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                if (i/size2/size3%size1) == torch.randint(0,size1-1,[1]):
+                	(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                else:
+                    return 100
                 
             if len(state_dict[key].shape) == 1:
                 state_dict[key][i].mul_(-1)
@@ -73,7 +82,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:1',
+    parser.add_argument('--device', action='store', default='cuda:0',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -151,7 +160,8 @@ if __name__=='__main__':
         b = 0
         one = []
         point = []
-        find_key = "0.weight"
+        find_key = "6.conv.weight"
+        print(find_key)
         state_dict = model.state_dict()
     
         for key in state_dict.keys():
@@ -162,12 +172,6 @@ if __name__=='__main__':
         
         with tqdm.tqdm(range(total)) as Loader:
             for i in Loader:
-                model = nin.Net()
-                pretrained_model = torch.load(args.pretrained)
-                best_acc = pretrained_model['best_acc']
-                model.load_state_dict(pretrained_model['state_dict'])
-                model.to(device)
-                bin_op = util.BinOp(model)
                 acc = test(i, find_key)
 
                 if ( acc + 0.1) < 86.28:
