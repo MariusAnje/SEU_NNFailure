@@ -162,7 +162,7 @@ if __name__=='__main__':
         point = []
 
 
-        find_key = "6.conv.weight"
+        find_key = "10.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
     
@@ -186,6 +186,6 @@ if __name__=='__main__':
                 Loader.set_description("a: %d, b: %d"%(a, b))
         print (a)
         print (b)
-        Dict2File(point, 'point.txt')
-        Dict2File(one, 'one.txt')
+        Dict2File(point, find_key+'point.txt')
+        Dict2File(one, find_key+'one.txt')
         exit()
