@@ -15,7 +15,7 @@ xnor.13.weight (10, 192, 1, 1)
     weights handle with inputs while bias are always the same for all data
 
 one   [conv1, 1] [conv2, 0] [conv3, 0] [con4, 0] 
-point [conv1, 984] [conv2, 2481] [conv3, 167] [conv4, ]
+point [conv1, 984, 0.0683] [conv2, 2481, 0.0807] [conv3, 167, 0.0109 ] [conv4, 11*96, 0.0023] [conv7, 0] [conv8, 0] [conv9, 5, 0.0026]
 """
 xnor.0.weight (192, 3, 5, 5)
 xnor.0.bias (192,)

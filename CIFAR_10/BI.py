@@ -16,11 +16,11 @@ from torch.autograd import Variable
 import tqdm
 
 def Dict2File(Dict, filename):
-    F = open(filename, 'a+')
+    F = open(filename, 'w+')
     F.write(str(Dict))
     F.close()
 
-def test(i, find_key):
+def test(i, find_key, rand = False):
     global best_acc
     test_loss = 0
     correct = 0
@@ -40,10 +40,13 @@ def test(i, find_key):
                 size1 = state_dict[key].shape[1]
                 size2 = state_dict[key].shape[2]
                 size3 = state_dict[key].shape[3]
-                if (i/size2/size3%size1) == torch.randint(0,size1-1,[1]):
-                	(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                if rand:
+                    if (i/size2/size3%size1) == torch.randint(0,size1-1,[1]):
+                        (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                    else:
+                        return 100
                 else:
-                    return 100
+                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
                 
             if len(state_dict[key].shape) == 1:
                 state_dict[key][i].mul_(-1)
@@ -156,11 +159,14 @@ if __name__=='__main__':
 
     # do the evaluation if specified
     if args.evaluate:
+        rand = True
         a = 0
-        b = 0
-        one = []
-        point = []
-
+        tLoss = 0
+        lMax = 0
+        lAvg = 0
+        lAvgL = 0
+        bestAcc = 86.28
+        save = []
 
         find_key = "10.conv.weight"
         print(find_key)
@@ -174,18 +180,24 @@ if __name__=='__main__':
         
         with tqdm.tqdm(range(total)) as Loader:
             for i in Loader:
-                acc = test(i, find_key)
-
-                if ( acc + 0.5) < 86.28:
-                    point += [i, acc]
+                acc = test(i, find_key, rand = rand)
+                loss = bestAcc - acc
+                if (loss > 0):
                     a += 1
-                if (acc + 1) < 86.28:
-                    one += [i, acc]
-                    b += 1
-                #a += acc
-                Loader.set_description("a: %d, b: %d"%(a, b))
-        print (a)
-        print (b)
-        Dict2File(point, find_key+'point.txt')
-        Dict2File(one, find_key+'one.txt')
+                    save.append((i,loss))
+                if (loss >= 0):
+                    tLoss += loss
+                lAvg  = tLoss / float(i + 1)
+                if (a != 0):
+                    lAvgL = tLoss / a
+                
+                if (loss > lMax):
+                    lMax = loss
+
+                Loader.set_description("a: %d, Av: %.2f%%, M: %.2f%%"%(a, lAvgL, lMax))
+                if ( i%1000 == 1):
+                    Dict2File(save, 'tmp.txt')
+
+        Dict2File(save, find_key+'save.txt')
+        print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()
