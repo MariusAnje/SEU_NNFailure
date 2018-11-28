@@ -14,46 +14,55 @@ import torch.optim as optim
 from models import nin
 from torch.autograd import Variable
 import tqdm
+import time
 
 def Dict2File(Dict, filename):
     F = open(filename, 'w+')
     F.write(str(Dict))
     F.close()
 
-def test(i, find_key, rand = False):
+def test(i, key, shape, rand = False, randFactor = 256):
     global best_acc
     test_loss = 0
     correct = 0
-    model = nin.Net()
-    pretrained_model = torch.load(args.pretrained)
-    best_acc = pretrained_model['best_acc']
-    model.load_state_dict(pretrained_model['state_dict'])
-    model.to(device)
-    bin_op = util.BinOp(model)
-    model.eval()
-    bin_op.binarization()
-    state_dict = model.state_dict()
+    if (not rand) or (len(shape) != 4):
+        model = nin.Net()
+        pretrained_model = torch.load(args.pretrained)
+        best_acc = pretrained_model['best_acc']
+        model.load_state_dict(pretrained_model['state_dict'])
+        model.to(device)
+        bin_op = util.BinOp(model)
+        model.eval()
+        bin_op.binarization()
+        state_dict = model.state_dict()
     
-    for key in state_dict.keys():
-        if key.find(find_key) != -1:
-            if len(state_dict[key].shape) == 4:
-                size1 = state_dict[key].shape[1]
-                size2 = state_dict[key].shape[2]
-                size3 = state_dict[key].shape[3]
-                if rand:
-                    if (i/size2/size3%size1) == torch.randint(0,size1-1,[1]):
-                        (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
-                    else:
-                        return 100
-                else:
-                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
-                
-            if len(state_dict[key].shape) == 1:
-                state_dict[key][i].mul_(-1)
-                
-            if len(state_dict[key].shape) == 2:
-                size = state_dict[key].shape[1]
-                (state_dict[key][int(i/size)][i%size]).mul_(-1)
+
+    if len(shape) == 4:
+        size1 = shape[1]
+        size2 = shape[2]
+        size3 = shape[3]
+        if rand:
+            if (int(i/(size2*size3))%int(size1)) == torch.randint(0,size1-1,[1]):
+                model = nin.Net()
+                pretrained_model = torch.load(args.pretrained)
+                model.load_state_dict(pretrained_model['state_dict'])
+                model.to(device)
+                bin_op = util.BinOp(model)
+                model.eval()
+                bin_op.binarization()
+                state_dict = model.state_dict()
+                (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+            else:
+                return 100
+        else:
+            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+
+    if len(shape) == 1:
+        state_dict[key][i].mul_(-1)
+
+    if len(shape) == 2:
+        size = state_dict[key].shape[1]
+        (state_dict[key][int(i/size)][i%size]).mul_(-1)
             
     with torch.no_grad():
         for data, target in testloader:
@@ -85,7 +94,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:0',
+    parser.add_argument('--device', action='store', default='cuda:1',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -161,6 +170,7 @@ if __name__=='__main__':
     if args.evaluate:
         rand = True
         a = 0
+        count = 0
         tLoss = 0
         lMax = 0
         lAvg = 0
@@ -175,29 +185,36 @@ if __name__=='__main__':
         for key in state_dict.keys():
             if key.find(find_key) != -1:
                 total = 1
+                shape = state_dict[key].shape
+                use_key = key
                 for t in range(len(state_dict[key].shape)):
                     total *= state_dict[key].shape[t]       
         
         with tqdm.tqdm(range(total)) as Loader:
+            start = time.time()
             for i in Loader:
-                acc = test(i, find_key, rand = rand)
+                acc = test(i, use_key, shape = shape, rand = rand)
                 loss = bestAcc - acc
+                
+                if (acc != 100):
+                    count += 1
+                    tLoss += loss
+                    lAvg  = tLoss / float(count)
+                
                 if (loss > 0):
                     a += 1
                     save.append((i,loss))
-                if (loss >= 0):
-                    tLoss += loss
-                lAvg  = tLoss / float(i + 1)
-                if (a != 0):
                     lAvgL = tLoss / a
-                
+                    Loader.set_description("a: %d, Av: %.2f%%, M: %.2f%%"%(a, lAvgL, lMax))
+ 
                 if (loss > lMax):
                     lMax = loss
 
-                Loader.set_description("a: %d, Av: %.2f%%, M: %.2f%%"%(a, lAvgL, lMax))
-                if ( i%1000 == 1):
+                end = time.time()
+                if (end - start > 2):
                     Dict2File(save, 'tmp.txt')
+                    start = end
 
-        Dict2File(save, find_key+'save.txt')
+        Dict2File(save, find_key+'_save.txt')
         print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()
