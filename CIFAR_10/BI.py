@@ -15,6 +15,7 @@ from models import nin
 from torch.autograd import Variable
 import tqdm
 import time
+import numpy as np
 
 def Dict2File(Dict, filename):
     F = open(filename, 'w+')
@@ -94,7 +95,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:1',
+    parser.add_argument('--device', action='store', default='cuda:0',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -168,7 +169,7 @@ if __name__=='__main__':
 
     # do the evaluation if specified
     if args.evaluate:
-        rand = True
+        rand = False
         a = 0
         count = 0
         tLoss = 0
@@ -178,7 +179,7 @@ if __name__=='__main__':
         bestAcc = 86.28
         save = []
 
-        find_key = "10.conv.weight"
+        find_key = "4.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
     
@@ -198,10 +199,10 @@ if __name__=='__main__':
                 
                 if (acc != 100):
                     count += 1
-                    tLoss += loss
                     lAvg  = tLoss / float(count)
                 
                 if (loss > 0):
+                    tLoss += loss
                     a += 1
                     save.append((i,loss))
                     lAvgL = tLoss / a
@@ -211,10 +212,10 @@ if __name__=='__main__':
                     lMax = loss
 
                 end = time.time()
-                if (end - start > 2):
-                    Dict2File(save, 'tmp.txt')
+                if (end - start > 300):
+                    np.save(find_key+'_tmp',save)
                     start = end
 
-        Dict2File(save, find_key+'_save.txt')
+        np.save(find_key+'_save', save)
         print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()
