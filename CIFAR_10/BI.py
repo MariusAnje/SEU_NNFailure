@@ -179,7 +179,7 @@ if __name__=='__main__':
         bestAcc = 86.28
         save = []
 
-        find_key = "4.conv.weight"
+        find_key = "13.weight"
         print(find_key)
         state_dict = model.state_dict()
     
