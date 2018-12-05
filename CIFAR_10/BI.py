@@ -170,12 +170,10 @@ if __name__=='__main__':
     # do the evaluation if specified
     if args.evaluate:
         rand = False
-        a = 0
         count = 0
         tLoss = 0
         lMax = 0
         lAvg = 0
-        lAvgL = 0
         bestAcc = 86.28
         save = []
 
@@ -200,13 +198,9 @@ if __name__=='__main__':
                 if (acc != 100):
                     count += 1
                     lAvg  = tLoss / float(count)
-                
-                if (loss > 0):
                     tLoss += loss
-                    a += 1
                     save.append((i,loss))
-                    lAvgL = tLoss / a
-                    Loader.set_description("a: %d, Av: %.2f%%, M: %.2f%%"%(a, lAvgL, lMax))
+                    Loader.set_description("Av: %.2f%%, M: %.2f%%"%(lAvg, lMax))
  
                 if (loss > lMax):
                     lMax = loss
@@ -216,6 +210,6 @@ if __name__=='__main__':
                     np.save(find_key+'_tmp',save)
                     start = end
 
-        np.save(find_key+'_save', save)
+        np.save(find_key+'.neg', save)
         print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()
