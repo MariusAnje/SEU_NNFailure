@@ -1,0 +1,22 @@
+"""
+features.0.weight (64, 3, 3, 3)
+features.2.weight (64, 64, 3, 3)
+features.5.weight (128, 64, 3, 3)
+features.7.weight (128, 128, 3, 3)
+features.10.weight (256, 128, 3, 3)
+features.12.weight (256, 256, 3, 3)
+features.14.weight (256, 256, 3, 3)
+features.17.weight (512, 256, 3, 3)
+features.19.weight (512, 512, 3, 3)
+features.21.weight (512, 512, 3, 3)
+features.24.weight (512, 512, 3, 3)
+features.26.weight (512, 512, 3, 3)
+features.28.weight (512, 512, 3, 3)
+classifier.0.weight (4096, 25088)
+classifier.3.weight (4096, 4096)
+classifier.6.weight (1000, 4096)
+"""
+
+    1
+Max
+Avg
