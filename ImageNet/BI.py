@@ -85,7 +85,7 @@ def test(i, key, shape, rand = False, randFactor = None, testFactor = None):
                 _, predicted = torch.max(outputs.data, 1)
                 totalItems += labels.size(0)
                 correct += (predicted == labels).sum().item()
-                theIter += 1
+            theIter += 1
     acc = float(correct) / float(totalItems) * 100
     return acc
 
@@ -149,10 +149,10 @@ if __name__=='__main__':
     tLoss = 0
     lMax = 0
     lAvg = 0
-    bestAcc = 90.625
+    bestAcc = 72.7906050955
     save = []
 
-    find_key = "features.0.weight"
+    find_key = "features.2.weight"
     print(find_key)
     state_dict = model.state_dict()
 

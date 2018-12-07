@@ -22,7 +22,7 @@ def Dict2File(Dict, filename):
     F.write(str(Dict))
     F.close()
 
-def test(i, key, shape, rand = False, randFactor = 256):
+def test(i, key, shape, rand = False, randFactor = None):
     global best_acc
     test_loss = 0
     correct = 0
@@ -44,6 +44,30 @@ def test(i, key, shape, rand = False, randFactor = 256):
         size3 = shape[3]
         if rand:
             if (int(i/(size2*size3))%int(size1)) == torch.randint(0,size1-1,[1]):
+                try:
+                    flag = int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])
+                except:
+                    flag = True
+                if (flag):
+                    model = nin.Net()
+                    pretrained_model = torch.load(args.pretrained)
+                    model.load_state_dict(pretrained_model['state_dict'])
+                    model.to(device)
+                    bin_op = util.BinOp(model)
+                    model.eval()
+                    bin_op.binarization()
+                    state_dict = model.state_dict()
+                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                else:
+                    return 100
+            else:
+                return 100
+        else:
+            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+
+    if len(shape) == 1:
+        if rand:
+            if (int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])):
                 model = nin.Net()
                 pretrained_model = torch.load(args.pretrained)
                 model.load_state_dict(pretrained_model['state_dict'])
@@ -51,19 +75,28 @@ def test(i, key, shape, rand = False, randFactor = 256):
                 bin_op = util.BinOp(model)
                 model.eval()
                 bin_op.binarization()
-                state_dict = model.state_dict()
-                (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                state_dict[key][i].mul_(-1)
             else:
                 return 100
         else:
-            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
-
-    if len(shape) == 1:
-        state_dict[key][i].mul_(-1)
+            state_dict[key][i].mul_(-1)
 
     if len(shape) == 2:
         size = state_dict[key].shape[1]
-        (state_dict[key][int(i/size)][i%size]).mul_(-1)
+        if rand:
+            if (int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])):
+                model = nin.Net()
+                pretrained_model = torch.load(args.pretrained)
+                model.load_state_dict(pretrained_model['state_dict'])
+                model.to(device)
+                bin_op = util.BinOp(model)
+                model.eval()
+                bin_op.binarization()
+                (state_dict[key][int(i/size)][i%size]).mul_(-1)
+            else:
+                return 100
+        else:
+            (state_dict[key][int(i/size)][i%size]).mul_(-1)
             
     with torch.no_grad():
         for data, target in testloader:
@@ -169,7 +202,8 @@ if __name__=='__main__':
 
     # do the evaluation if specified
     if args.evaluate:
-        rand = False
+        rand = True
+        randFactor = 1
         count = 0
         tLoss = 0
         lMax = 0
@@ -177,7 +211,7 @@ if __name__=='__main__':
         bestAcc = 86.28
         save = []
 
-        find_key = "13.weight"
+        find_key = "10.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
     
@@ -192,7 +226,7 @@ if __name__=='__main__':
         with tqdm.tqdm(range(total)) as Loader:
             start = time.time()
             for i in Loader:
-                acc = test(i, use_key, shape = shape, rand = rand)
+                acc = test(i, use_key, shape = shape, rand = rand, randFactor=randFactor)
                 loss = bestAcc - acc
                 
                 if (acc != 100):
@@ -200,7 +234,7 @@ if __name__=='__main__':
                     lAvg  = tLoss / float(count)
                     tLoss += loss
                     save.append((i,loss))
-                    Loader.set_description("Av: %.2f%%, M: %.2f%%"%(lAvg, lMax))
+                    Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
  
                 if (loss > lMax):
                     lMax = loss

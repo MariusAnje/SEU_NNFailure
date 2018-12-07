@@ -17,6 +17,6 @@ classifier.3.weight (4096, 4096)
 classifier.6.weight (1000, 4096)
 """
 
-    1
-Max
-Avg
+    1     2
+Max 4.18% 
+Avg 0.18% 
