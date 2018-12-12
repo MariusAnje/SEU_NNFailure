@@ -17,6 +17,13 @@ classifier.3.weight (4096, 4096)
 classifier.6.weight (1000, 4096)
 """
 
-    1     2
-Max 4.18% 
-Avg 0.18% 
+weights
+
+    1     2     3     4
+Max 4.18% 0.12% 0.11% 
+Avg 0.18% 7e-4% 2e-3% 
+
+bias
+    1     2     3
+Max 2.31% 0.35% 0.01%
+Avg 0.29% 0.03% 3e-3%

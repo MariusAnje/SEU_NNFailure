@@ -107,7 +107,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:0',
+    parser.add_argument('--device', action='store', default='cuda:1',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -142,7 +142,7 @@ if __name__=='__main__':
     if args.verbose:
         print(model)
 
-    rand = True
+    rand = False
     randFactor = 1
     testFactor = 5
     count = 0
@@ -152,7 +152,7 @@ if __name__=='__main__':
     bestAcc = 72.7906050955
     save = []
 
-    find_key = "features.2.weight"
+    find_key = "features.7.bias"
     print(find_key)
     state_dict = model.state_dict()
 
