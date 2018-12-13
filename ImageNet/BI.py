@@ -16,7 +16,7 @@ import tqdm
 import time
 import numpy as np
 
-def test(i, key, shape, rand = False, randFactor = None, testFactor = None):
+def test(i, key, shape, rand = False, randFactor = None, memoryData = None):
     global best_acc
     if rand == False:
         model = Pytorch_VGG.vgg16(pretrained = True)
@@ -77,7 +77,7 @@ def test(i, key, shape, rand = False, randFactor = None, testFactor = None):
     correct = 0
     totalItems = 0
     with torch.no_grad():
-        for data in tqdm.tqdm(val_loader, leave = False):
+        for data in tqdm.tqdm(memoryData, leave = False):
             if theIter%testFactor == 0:
                 images, labels = data
                 images, labels = images.to(device), labels.to(device)
@@ -87,7 +87,6 @@ def test(i, key, shape, rand = False, randFactor = None, testFactor = None):
                 correct += (predicted == labels).sum().item()
             theIter += 1
     acc = float(correct) / float(totalItems) * 100
-    print(totalItems)
     return acc
 
 
@@ -108,7 +107,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:0',
+    parser.add_argument('--device', action='store', default='cuda:1',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -134,8 +133,8 @@ if __name__=='__main__':
                 transforms.ToTensor(),
                 normalize,
             ])), indices),
-        batch_size=32, shuffle=False,
-        num_workers=24, pin_memory=True)
+        batch_size=64, shuffle=False,
+        num_workers=8, pin_memory=True)
     
     model = Pytorch_VGG.vgg16(pretrained = True)
     
@@ -145,17 +144,18 @@ if __name__=='__main__':
     if args.verbose:
         print(model)
 
-    rand = True
-    randFactor =32
+    rand = False
+    randFactor =4
     testFactor = 1
     count = 0
     tLoss = 0
     lMax = 0
     lAvg = 0
-    bestAcc = 72.7906050955
+    bestAcc = 71.31
     save = []
+    memoryData = []
 
-    find_key = "features.7.weight"
+    find_key = "features.7.bias"
     print(find_key)
     state_dict = model.state_dict()
 
@@ -165,12 +165,16 @@ if __name__=='__main__':
             shape = state_dict[key].shape
             use_key = key
             for t in range(len(state_dict[key].shape)):
-                total *= state_dict[key].shape[t]  
+                total *= state_dict[key].shape[t]
+    
+
+    for data in tqdm.tqdm(val_loader, leave = False):
+        memoryData += [data]
 
     with tqdm.tqdm(range(total)) as Loader:
         start = time.time()
         for i in Loader:
-            acc = test(i, use_key, shape = shape, rand = rand, randFactor=randFactor, testFactor = testFactor)
+            acc = test(i, use_key, shape = shape, rand = rand, randFactor=randFactor, memoryData = memoryData)
             loss = bestAcc - acc
 
             if (acc != 100):
