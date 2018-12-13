@@ -87,6 +87,7 @@ def test(i, key, shape, rand = False, randFactor = None, testFactor = None):
                 correct += (predicted == labels).sum().item()
             theIter += 1
     acc = float(correct) / float(totalItems) * 100
+    print(totalItems)
     return acc
 
 
@@ -107,7 +108,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:1',
+    parser.add_argument('--device', action='store', default='cuda:0',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -118,21 +119,23 @@ if __name__=='__main__':
     # set the seed
     torch.manual_seed(1)
     torch.cuda.manual_seed(1)
+    indices = np.load("subset.npy")
 
 
-    valdir = '/home/data/yanzy/val'
+    valdir = '/home/yanzy/data/val'
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
     val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=64, shuffle=False,
-        num_workers=32, pin_memory=True)
+        torch.utils.data.Subset(
+            datasets.ImageFolder(valdir, transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])), indices),
+        batch_size=32, shuffle=False,
+        num_workers=24, pin_memory=True)
     
     model = Pytorch_VGG.vgg16(pretrained = True)
     
@@ -142,9 +145,9 @@ if __name__=='__main__':
     if args.verbose:
         print(model)
 
-    rand = False
-    randFactor = 1
-    testFactor = 5
+    rand = True
+    randFactor =32
+    testFactor = 1
     count = 0
     tLoss = 0
     lMax = 0
@@ -152,7 +155,7 @@ if __name__=='__main__':
     bestAcc = 72.7906050955
     save = []
 
-    find_key = "features.7.bias"
+    find_key = "features.7.weight"
     print(find_key)
     state_dict = model.state_dict()
 
