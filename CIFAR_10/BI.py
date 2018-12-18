@@ -17,12 +17,8 @@ import tqdm
 import time
 import numpy as np
 
-def Dict2File(Dict, filename):
-    F = open(filename, 'w+')
-    F.write(str(Dict))
-    F.close()
 
-def test(i, key, shape, rand = False, randFactor = None):
+def test(i, key, shape, rand = False, randFactor = None, memoryData=[]):
     global best_acc
     test_loss = 0
     correct = 0
@@ -99,29 +95,24 @@ def test(i, key, shape, rand = False, randFactor = None):
             (state_dict[key][int(i/size)][i%size]).mul_(-1)
             
     with torch.no_grad():
-        for data, target in testloader:
+        for data, target in memoryData:
             data, target = Variable(data.to(device)), Variable(target.to(device))
 
             output = model(data)
-            test_loss += criterion(output, target).data.item()
+            #test_loss += criterion(output, target).data.item()
             pred = output.data.max(1, keepdim=True)[1]
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
     bin_op.restore()
-    acc = 100. * float(correct) / len(testloader.dataset)
+    acc = 100. * float(correct) / float(len(testloader.dataset))
+    #print (acc,correct,len(testloader.dataset))
     return acc
 
 
 if __name__=='__main__':
     # prepare the options
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cpu', action='store_true',
-            help='set if only CPU is available')
     parser.add_argument('--data', action='store', default='./data/',
             help='dataset path')
-    parser.add_argument('--arch', action='store', default='nin',
-            help='the architecture for the network: nin')
-    parser.add_argument('--lr', action='store', default='0.01',
-            help='the intial learning rate')
     parser.add_argument('--pretrained', action='store', default='nin.best.pth.tar',
             help='the path to the pretrained model')
     parser.add_argument('--evaluate', action='store_true', default=True,
@@ -147,71 +138,42 @@ if __name__=='__main__':
                 ('Please assign the correct data path with --data <DATA_PATH>')
 
     testset = data.dataset(root=args.data, train=False)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=512,
-            shuffle=False, num_workers=4)
+    indices = np.load("subset_CIFAR10.npy")
+    testloader = torch.utils.data.DataLoader(torch.utils.data.Subset(testset, indices), 
+                                 batch_size=512, shuffle=False, num_workers=4)
 
     # define classes
     classes = ('plane', 'car', 'bird', 'cat',
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     # define the model
-    if args.verbose:
-        print('==> building model',args.arch,'...')
-    if args.arch == 'nin':
-        model = nin.Net()
-    else:
-        raise Exception(args.arch+' is currently not supported')
+    model = nin.Net()
+    pretrained_model = torch.load(args.pretrained)
+    best_acc = pretrained_model['best_acc']
+    model.load_state_dict(pretrained_model['state_dict'])
 
-    # initialize the model
-    if not args.pretrained:
-        if args.verbose:
-            print('==> Initializing model parameters ...')
-        best_acc = 0
-        for m in model.modules():
-            if isinstance(m, nn.Conv2d):
-                m.weight.data.normal_(0, 0.05)
-                m.bias.data.zero_()
-    else:
-        if args.verbose:
-            print('==> Load pretrained model form', args.pretrained, '...')
-        pretrained_model = torch.load(args.pretrained)
-        best_acc = pretrained_model['best_acc']
-        model.load_state_dict(pretrained_model['state_dict'])
-
-    if not args.cpu:
-        model.to(device)
-        #model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
-    if args.verbose:
-        print(model)
+    model.to(device)
 
     # define solver and criterion
-    base_lr = float(args.lr)
     param_dict = dict(model.named_parameters())
     params = []
 
-    for key, value in param_dict.items():
-        params += [{'params':[value], 'lr': base_lr,
-            'weight_decay':0.00001}]
-
-        optimizer = optim.Adam(params, lr=0.10,weight_decay=0.00001)
-    criterion = nn.CrossEntropyLoss()
-
     # define the binarization operator
     bin_op = util.BinOp(model)
-    happy = model.state_dict()
 
     # do the evaluation if specified
     if args.evaluate:
-        rand = True
+        rand = False
         randFactor = 1
         count = 0
         tLoss = 0
         lMax = 0
         lAvg = 0
-        bestAcc = 86.28
+        bestAcc = 85.52
         save = []
+        memoryData = []
 
-        find_key = "10.conv.weight"
+        find_key = "8.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
     
@@ -223,10 +185,14 @@ if __name__=='__main__':
                 for t in range(len(state_dict[key].shape)):
                     total *= state_dict[key].shape[t]       
         
+        for data in tqdm.tqdm(testloader, leave = False):
+            memoryData += [data]
+        
+        
         with tqdm.tqdm(range(total)) as Loader:
             start = time.time()
             for i in Loader:
-                acc = test(i, use_key, shape = shape, rand = rand, randFactor=randFactor)
+                acc = test(i, use_key, shape = shape, rand = rand, randFactor=randFactor, memoryData=memoryData)
                 loss = bestAcc - acc
                 
                 if (acc != 100):
@@ -244,6 +210,6 @@ if __name__=='__main__':
                     np.save(find_key+'_tmp',save)
                     start = end
 
-        np.save(find_key+'.neg', save)
+        np.save(find_key+'.half', save)
         print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()
