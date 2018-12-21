@@ -1,6 +1,7 @@
 *.pyc
 *.txt
 *.npy
+*.pt
 
 # Byte-compiled / optimized files
 __pycache__/
