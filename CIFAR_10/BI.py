@@ -119,7 +119,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:0',
+    parser.add_argument('--device', action='store', default='cuda:2',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -173,7 +173,7 @@ if __name__=='__main__':
         save = []
         memoryData = []
 
-        find_key = "8.conv.weight"
+        find_key = "13.weight"
         print(find_key)
         state_dict = model.state_dict()
     
