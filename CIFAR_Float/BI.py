@@ -107,7 +107,7 @@ if __name__=='__main__':
             help='the path to the pretrained model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:0',
+    parser.add_argument('--device', action='store', default='cuda:1',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -154,7 +154,7 @@ if __name__=='__main__':
     save = []
     memoryData = []
 
-    find_key = "classifier.16.weight"
+    find_key = "classifier.20.weight"
     print(find_key)
     state_dict = model.state_dict()
 

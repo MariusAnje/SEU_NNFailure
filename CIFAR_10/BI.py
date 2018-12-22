@@ -6,31 +6,23 @@ import sys
 import os
 import torch
 import argparse
-import data
-import util
-import torch.nn as nn
-import torch.optim as optim
+import models
 
-from models import nin
-from torch.autograd import Variable
+import torchvision
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
 import tqdm
 import time
 import numpy as np
 
-
-def test(i, key, shape, rand = False, randFactor = None, memoryData=[]):
+def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryData = None):
     global best_acc
-    test_loss = 0
-    correct = 0
-    if (not rand) or (len(shape) != 4):
-        model = nin.Net()
-        pretrained_model = torch.load(args.pretrained)
-        best_acc = pretrained_model['best_acc']
-        model.load_state_dict(pretrained_model['state_dict'])
+    if rand == False:
+        state_dict = torch.load(args.pretrained)
+        model = models.nin()
+        model.load_state_dict(state_dict)
         model.to(device)
-        bin_op = util.BinOp(model)
         model.eval()
-        bin_op.binarization()
         state_dict = model.state_dict()
     
 
@@ -39,19 +31,17 @@ def test(i, key, shape, rand = False, randFactor = None, memoryData=[]):
         size2 = shape[2]
         size3 = shape[3]
         if rand:
-            if (int(i/(size2*size3))%int(size1)) == torch.randint(0,size1-1,[1]):
+            if ((int(i/(size2*size3))%int(size1)) == torch.randint(0,size1-1,[1]) or bypass):
                 try:
                     flag = int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])
                 except:
                     flag = True
                 if (flag):
-                    model = nin.Net()
-                    pretrained_model = torch.load(args.pretrained)
-                    model.load_state_dict(pretrained_model['state_dict'])
+                    state_dict = torch.load(args.pretrained)
+                    model = models.nin()
+                    model.load_state_dict(state_dict)
                     model.to(device)
-                    bin_op = util.BinOp(model)
                     model.eval()
-                    bin_op.binarization()
                     state_dict = model.state_dict()
                     (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
                 else:
@@ -64,13 +54,11 @@ def test(i, key, shape, rand = False, randFactor = None, memoryData=[]):
     if len(shape) == 1:
         if rand:
             if (int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])):
-                model = nin.Net()
-                pretrained_model = torch.load(args.pretrained)
-                model.load_state_dict(pretrained_model['state_dict'])
+                state_dict = torch.load(args.pretrained)
+                model = models.nin()
+                model.load_state_dict(state_dict)
                 model.to(device)
-                bin_op = util.BinOp(model)
                 model.eval()
-                bin_op.binarization()
                 state_dict[key][i].mul_(-1)
             else:
                 return 100
@@ -81,45 +69,45 @@ def test(i, key, shape, rand = False, randFactor = None, memoryData=[]):
         size = state_dict[key].shape[1]
         if rand:
             if (int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])):
-                model = nin.Net()
-                pretrained_model = torch.load(args.pretrained)
-                model.load_state_dict(pretrained_model['state_dict'])
+                state_dict = torch.load(args.pretrained)
+                model = models.nin()
+                model.load_state_dict(state_dict)
                 model.to(device)
-                bin_op = util.BinOp(model)
                 model.eval()
-                bin_op.binarization()
                 (state_dict[key][int(i/size)][i%size]).mul_(-1)
             else:
                 return 100
         else:
             (state_dict[key][int(i/size)][i%size]).mul_(-1)
             
+    theIter = 0
+    correct = 0
+    totalItems = 0
     with torch.no_grad():
-        for data, target in memoryData:
-            data, target = Variable(data.to(device)), Variable(target.to(device))
-
-            output = model(data)
-            #test_loss += criterion(output, target).data.item()
-            pred = output.data.max(1, keepdim=True)[1]
-            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-    bin_op.restore()
-    acc = 100. * float(correct) / float(len(testloader.dataset))
-    #print (acc,correct,len(testloader.dataset))
+        model.eval()
+        for data in memoryData:
+            if theIter%testFactor == 0:
+                images, labels = data
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                _, predicted = torch.max(outputs.data, 1)
+                totalItems += labels.size(0)
+                correct += (predicted == labels).sum().item()
+            theIter += 1
+    acc = float(correct) / float(totalItems) * 100
     return acc
 
 
 if __name__=='__main__':
     # prepare the options
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', action='store', default='./data/',
-            help='dataset path')
-    parser.add_argument('--pretrained', action='store', default='nin.best.pth.tar',
+    parser.add_argument('--cpu', action='store_true',
+            help='set if only CPU is available')
+    parser.add_argument('--pretrained', action='store', default='good.pt',
             help='the path to the pretrained model')
-    parser.add_argument('--evaluate', action='store_true', default=True,
-            help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:2',
+    parser.add_argument('--device', action='store', default='cuda:1',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -130,86 +118,79 @@ if __name__=='__main__':
     # set the seed
     torch.manual_seed(1)
     torch.cuda.manual_seed(1)
+    #indices = np.load("subset.npy")
 
-    # prepare the data
-    if not os.path.isfile(args.data+'/train_data'):
-        # check the data path
-        raise Exception\
-                ('Please assign the correct data path with --data <DATA_PATH>')
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    testset = data.dataset(root=args.data, train=False)
-    indices = np.load("subset_CIFAR10.npy")
-    testloader = torch.utils.data.DataLoader(torch.utils.data.Subset(testset, indices), 
-                                 batch_size=512, shuffle=False, num_workers=4)
+    testset = torchvision.datasets.CIFAR10(root='../CIFAR_10/data', train=False,
+                                           download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=256,
+                                             shuffle=False, num_workers=2, pin_memory=True)
 
-    # define classes
     classes = ('plane', 'car', 'bird', 'cat',
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-    # define the model
-    model = nin.Net()
-    pretrained_model = torch.load(args.pretrained)
-    best_acc = pretrained_model['best_acc']
-    model.load_state_dict(pretrained_model['state_dict'])
-
-    model.to(device)
-
-    # define solver and criterion
-    param_dict = dict(model.named_parameters())
-    params = []
-
-    # define the binarization operator
-    bin_op = util.BinOp(model)
-
-    # do the evaluation if specified
-    if args.evaluate:
-        rand = False
-        randFactor = 1
-        count = 0
-        tLoss = 0
-        lMax = 0
-        lAvg = 0
-        bestAcc = 85.52
-        save = []
-        memoryData = []
-
-        find_key = "13.weight"
-        print(find_key)
-        state_dict = model.state_dict()
     
-        for key in state_dict.keys():
-            if key.find(find_key) != -1:
-                total = 1
-                shape = state_dict[key].shape
-                use_key = key
-                for t in range(len(state_dict[key].shape)):
-                    total *= state_dict[key].shape[t]       
-        
-        for data in tqdm.tqdm(testloader, leave = False):
-            memoryData += [data]
-        
-        
-        with tqdm.tqdm(range(total)) as Loader:
-            start = time.time()
-            for i in Loader:
-                acc = test(i, use_key, shape = shape, rand = rand, randFactor=randFactor, memoryData=memoryData)
-                loss = bestAcc - acc
-                
-                if (acc != 100):
-                    count += 1
-                    lAvg  = tLoss / float(count)
-                    tLoss += loss
-                    save.append((i,loss))
-                    Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
- 
-                if (loss > lMax):
-                    lMax = loss
+    state_dict = torch.load(args.pretrained)
+    model = models.nin()
+    model.load_state_dict(state_dict)
+    
+    if not args.cpu:
+        model.to(device)
 
-                end = time.time()
-                if (end - start > 300):
-                    np.save(find_key+'_tmp',save)
-                    start = end
+    if args.verbose:
+        print(model)
 
-        np.save(find_key+'.half', save)
-        print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
-        exit()
+    rand = False
+    bypass = True
+    randFactor =4
+    testFactor = 1
+    count = 0
+    tLoss = 0
+    lMax = 0
+    lAvg = 0
+    bestAcc = 88.51
+    save = []
+    memoryData = []
+
+    find_key = "4.conv.weight"
+    print(find_key)
+    state_dict = model.state_dict()
+
+    for key in state_dict.keys():
+        if key.find(find_key) != -1:
+            total = 1
+            shape = state_dict[key].shape
+            use_key = key
+            for t in range(len(state_dict[key].shape)):
+                total *= state_dict[key].shape[t]
+    
+
+    for data in tqdm.tqdm(testloader, leave = False):
+        memoryData += [data]
+
+    with tqdm.tqdm(range(total)) as Loader:
+        start = time.time()
+        for i in Loader:
+            acc = test(i, use_key, shape = shape, rand = rand, bypass = bypass, randFactor=randFactor, memoryData = memoryData)
+            loss = bestAcc - acc
+
+            if (acc != 100):
+                count += 1
+                tLoss += loss
+                lAvg  = tLoss / float(count)
+                save.append((i,loss))
+                Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
+
+            if (loss > lMax):
+                lMax = loss
+
+            end = time.time()
+            if (end - start > 300):
+                np.save(find_key+'_tmp',save)
+                start = end
+
+    np.save(find_key+'.neg', save)
+    print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
+    exit()
