@@ -2,6 +2,10 @@
 *.txt
 *.npy
 *.pt
+*.png
+*.jpg
+*.jpeg
+*.JPEG
 
 # Byte-compiled / optimized files
 __pycache__/
