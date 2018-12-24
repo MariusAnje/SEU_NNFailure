@@ -142,7 +142,7 @@ if __name__=='__main__':
     if args.verbose:
         print(model)
 
-    rand = False
+    rand = True
     bypass = True
     randFactor =4
     testFactor = 1
@@ -154,7 +154,7 @@ if __name__=='__main__':
     save = []
     memoryData = []
 
-    find_key = "classifier.20.weight"
+    find_key = "classifier.16.weight"
     print(find_key)
     state_dict = model.state_dict()
 
