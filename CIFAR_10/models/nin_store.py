@@ -58,38 +58,51 @@ class StoreActivation(nn.Module):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.xnor = nn.Sequential(
-                nn.Conv2d(3, 192, kernel_size=5, stride=1, padding=2),
-                nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False),
-                nn.ReLU(inplace=True),
-                StoreActivation(1),
-                BinConv2d(192, 160, kernel_size=1, stride=1, padding=0),
-                StoreActivation(2),
-                BinConv2d(160,  96, kernel_size=1, stride=1, padding=0),
-                StoreActivation(3),
-                nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+        self.conv1 = nn.Conv2d(3, 192, kernel_size=5, stride=1, padding=2)
+        self.bn1 = nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.bconv2 = BinConv2d(192, 160, kernel_size=1, stride=1, padding=0)
+        self.bconv3 = BinConv2d(160,  96, kernel_size=1, stride=1, padding=0)
+        self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-                BinConv2d( 96, 192, kernel_size=5, stride=1, padding=2, dropout=0.5),
-                StoreActivation(4),
-                BinConv2d(192, 192, kernel_size=1, stride=1, padding=0),
-                StoreActivation(5),
-                BinConv2d(192, 192, kernel_size=1, stride=1, padding=0),
-                StoreActivation(6),
-                nn.AvgPool2d(kernel_size=3, stride=2, padding=1),
-                StoreActivation(7),
+        self.bconv4 = BinConv2d( 96, 192, kernel_size=5, stride=1, padding=2, dropout=0.5)
+        self.bconv5 = BinConv2d(192, 192, kernel_size=1, stride=1, padding=0)
+        self.bconv6 = BinConv2d(192, 192, kernel_size=1, stride=1, padding=0)
+        self.pool2 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
 
-                BinConv2d(192, 192, kernel_size=3, stride=1, padding=1, dropout=0.5),
-                StoreActivation(8),
-                BinConv2d(192, 192, kernel_size=1, stride=1, padding=0),
-                nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False),
-                StoreActivation(9),
-                nn.Conv2d(192,  10, kernel_size=1, stride=1, padding=0),
-                nn.ReLU(inplace=True),
-                StoreActivation(10),
-                nn.AvgPool2d(kernel_size=8, stride=1, padding=0),
-                )
+        self.bconv7 = BinConv2d(192, 192, kernel_size=3, stride=1, padding=1, dropout=0.5)
+        self.bconv8 = BinConv2d(192, 192, kernel_size=1, stride=1, padding=0)
+        self.bn2 = nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False)
+        self.conv9 = nn.Conv2d(192,  10, kernel_size=1, stride=1, padding=0)
+        self.relu2 = nn.ReLU(inplace=True)
+        self.pool3 = nn.AvgPool2d(kernel_size=8, stride=1, padding=0)
 
     def forward(self, x):
-        x = self.xnor(x)
+        activations = []
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        activations += [x.cpu()]
+        x = self.bconv2(x)
+        activations += [x.cpu()]
+        x = self.bconv3(x)
+        activations += [x.cpu()]
+        x = self.pool1(x)
+        x = self.bconv4(x)
+        activations += [x.cpu()]
+        x = self.bconv5(x)
+        activations += [x.cpu()]
+        x = self.bconv6(x)
+        activations += [x.cpu()]
+        x = self.pool2(x)
+        x = self.bconv7(x)
+        activations += [x.cpu()]
+        x = self.bconv8(x)
+        activations += [x.cpu()]
+        x = self.bn2(x)
+        x = self.conv9(x)
+        activations += [x.cpu()]
+        x = self.relu2(x)
+        x = self.pool3(x)
         x = x.view(x.size(0), 10)
-        return x
+        return x, activations
