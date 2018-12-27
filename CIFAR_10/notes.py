@@ -15,7 +15,7 @@ xnor.13.weight (10, 192, 1, 1)
     weights handle with inputs while bias are always the same for all data
 
     1      2      3     4     5     6     7      8     9
-Max 1.02%  0.89%  0.67% 0.26% 0.53% 0.22% 0.05%  0.12% 0.83%
+Max 1.02%  0.89%  0.67% 0.32% 0.53% 0.22% 0.05%  0.12% 0.83%
 Avg 0.23%  0.30%  0.21% 0.03% 0.12% 0.03% 0.001% 0.02% 0.04%
 
 one   [conv1, 1] [conv2, 0] [conv3, 0] [con4, 0] 

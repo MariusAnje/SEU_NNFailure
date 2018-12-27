@@ -119,7 +119,7 @@ if __name__=='__main__':
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:2',
+    parser.add_argument('--device', action='store', default='cuda:1',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -163,7 +163,7 @@ if __name__=='__main__':
 
     # do the evaluation if specified
     if args.evaluate:
-        rand = True
+        rand = False
         bypass = True
         randFactor = 4
         count = 0
@@ -174,7 +174,7 @@ if __name__=='__main__':
         save = []
         memoryData = []
 
-        find_key = "6.conv.weight"
+        find_key = "11.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
     
