@@ -10,7 +10,7 @@ class BinOp():
                 count_Conv2d = count_Conv2d + 1
 
         start_range = 1
-        end_range = count_Conv2d-2
+        end_range = count_Conv2d-3
         self.bin_range = numpy.linspace(start_range,
                 end_range, end_range-start_range+1)\
                         .astype('int').tolist()
