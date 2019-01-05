@@ -84,11 +84,12 @@ class Net(nn.Module):
     def forward(self, x):
         x_0 = self.conv1(x)
         x_0 = self.bn1(x_0)
-        x_0 = self.relu1(x_0)
+        #x_0 = self.relu1(x_0)
         x_1 = self.conv1_1(x)
         x_1 = self.bn1_1(x_1)
-        x_1 = self.relu1_1(x_1)
+        #x_1 = self.relu1_1(x_1)
         x = (x_0 + x_1)/2
+        x = self.relu1(x)
         x = self.bconv2(x)
         x = self.bconv3(x)
         x = self.pool1(x)

@@ -7,11 +7,11 @@ import os
 import torch
 import argparse
 import data
-import util
+import util_fuc as util
 import torch.nn as nn
 import torch.optim as optim
 
-from models import nin
+from models import nin_halfadd
 from torch.autograd import Variable
 import tqdm
 import time
@@ -25,15 +25,11 @@ def load_pretrained(filePath):
     useKeys = useState_dict.keys()
     preKeys = preState_dict.keys()
     j = 0
-    print (len(useKeys))
-    print (len(preKeys))
     for key in useKeys:
         if j == 50:
             j = 0
         if key.find('num_batches_tracked') == -1:
             useState_dict[key].data = preState_dict[preKeys[j]].data
-            if key[-4:] != preKeys[j][-4:]:
-                print (key , preKeys[j])
             j +=1
     model.load_state_dict(useState_dict)
     model.to(device)
@@ -62,10 +58,10 @@ def BitInverse(i, key, shape):
         (state_dict[key][int(i/size)][i%size]).mul_(-1)
     
     model.load_state_dict(state_dict)
+    model.eval()
     return model
 
 def test(i, key, shape, memoryData = None):
-    activations = []
     test_loss = 0
     correct = 0
     
@@ -81,8 +77,7 @@ def test(i, key, shape, memoryData = None):
             
     bin_op.restore()
     acc = 100. * float(correct) / float(len(testloader.dataset))
-
-    return acc, activations
+    return acc
 
 
 if __name__=='__main__':
@@ -115,7 +110,6 @@ if __name__=='__main__':
                 ('Please assign the correct data path with --data <DATA_PATH>')
 
     testset = data.dataset(root=args.data, train=False)
-    indices = np.load("subset_CIFAR10.npy")
     testloader = torch.utils.data.DataLoader(testset,
                                  batch_size=512, shuffle=False, num_workers=4)
 
@@ -124,16 +118,7 @@ if __name__=='__main__':
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     # define the model
-    model = nin.Net()
-    pretrained_model = torch.load(args.pretrained)
-    best_acc = pretrained_model['best_acc']
-    model.load_state_dict(pretrained_model['state_dict'])
-
-    model.to(device)
-
-    # define solver and criterion
-    param_dict = dict(model.named_parameters())
-    params = []
+    model = load_pretrained('nin.best.pth.tar')
 
     # define the binarization operator
     bin_op = util.BinOp(model)
@@ -170,13 +155,13 @@ if __name__=='__main__':
         with tqdm.tqdm(range(total)) as Loader:
             start = time.time()
             for i in Loader:
-                acc = test(i, use_key, shape = shape, rand = rand, bypass = bypass, randFactor=randFactor, memoryData = memoryData)
+                acc = test(i, use_key, shape = shape, memoryData = memoryData)
                 loss = bestAcc - acc
                 
                 if (acc != 100):
                     count += 1
-                    lAvg  = tLoss / float(count)
                     tLoss += loss
+                    lAvg  = tLoss / float(count)
                     save.append((i,loss))
                     Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
  
