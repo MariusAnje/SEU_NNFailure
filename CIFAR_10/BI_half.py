@@ -17,27 +17,31 @@ import tqdm
 import time
 import numpy as np
 
-def load_pretrained(filePath):
+def load_pretrained(filePath, same):
     model = nin_halfadd.Net()
     pretrained_model = torch.load(filePath)
     useState_dict = model.state_dict()
     preState_dict = pretrained_model['state_dict']
-    useKeys = useState_dict.keys()
-    preKeys = preState_dict.keys()
-    j = 0
-    for key in useKeys:
-        if j == 50:
-            j = 0
-        if key.find('num_batches_tracked') == -1:
-            useState_dict[key].data = preState_dict[preKeys[j]].data
-            j +=1
+    if same:
+        useState_dict = preState_dict
+    else:
+        useKeys = useState_dict.keys()
+        preKeys = preState_dict.keys()
+        j = 0
+        for key in useKeys:
+            if j == 50:
+                j = 0
+            if key.find('num_batches_tracked') == -1:
+                useState_dict[key].data = preState_dict[preKeys[j]].data
+                j +=1
     model.load_state_dict(useState_dict)
     model.to(device)
+    model = torch.nn.DataParallel(model, device_ids=range(2))
     return model
 
-def BitInverse(i, key, shape):
+def BitInverse(i, key, shape, same):
     
-    model = load_pretrained('nin.best.pth.tar')
+    model = load_pretrained(args.pretrained, same)
     bin_op = util.BinOp(model)
     model.eval()
     bin_op.binarization()
@@ -61,11 +65,11 @@ def BitInverse(i, key, shape):
     model.eval()
     return model
 
-def test(i, key, shape, memoryData = None):
+def test(i, key, shape, memoryData, same):
     test_loss = 0
     correct = 0
     
-    model = BitInverse(i, key, shape)
+    model = BitInverse(i, key, shape, same)
     model.eval()
     with torch.no_grad():
         for data, target in memoryData:
@@ -85,14 +89,16 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', action='store', default='./data/',
             help='dataset path')
-    parser.add_argument('--pretrained', action='store', default='nin.best.pth.tar',
+    parser.add_argument('--pretrained', action='store', default='nin_halfadd_best.pth.tar',
             help='the path to the pretrained model')
     parser.add_argument('--evaluate', action='store_true', default=True,
             help='evaluate the model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:1',
+    parser.add_argument('--device', action='store', default='cuda:0',
             help='input the device you want to use')
+    parser.add_argument('--same', action='store_true', default=False,
+            help='if use same model')
     args = parser.parse_args()
     if args.verbose:
         print('==> Options:',args)
@@ -111,20 +117,21 @@ if __name__=='__main__':
 
     testset = data.dataset(root=args.data, train=False)
     testloader = torch.utils.data.DataLoader(testset,
-                                 batch_size=512, shuffle=False, num_workers=4)
+                                 batch_size=1024, shuffle=False, num_workers=4)
 
     # define classes
     classes = ('plane', 'car', 'bird', 'cat',
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     # define the model
-    model = load_pretrained('nin.best.pth.tar')
+    model = load_pretrained(args.pretrained, True)
 
     # define the binarization operator
     bin_op = util.BinOp(model)
 
     # do the evaluation if specified
     if args.evaluate:
+        same = args.same
         rand = False
         bypass = True
         randFactor = 4
@@ -132,11 +139,11 @@ if __name__=='__main__':
         tLoss = 0
         lMax = 0
         lAvg = 0
-        bestAcc = 86.28
+        bestAcc = 86.84
         save = []
         memoryData = []
 
-        find_key = "conv1.weight"
+        find_key = "bconv2.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
     
@@ -155,7 +162,7 @@ if __name__=='__main__':
         with tqdm.tqdm(range(total)) as Loader:
             start = time.time()
             for i in Loader:
-                acc = test(i, use_key, shape = shape, memoryData = memoryData)
+                acc = test(i, use_key, shape = shape, memoryData = memoryData, same = same)
                 loss = bestAcc - acc
                 
                 if (acc != 100):

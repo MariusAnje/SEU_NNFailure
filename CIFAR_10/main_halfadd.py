@@ -164,7 +164,7 @@ if __name__=='__main__':
 
     if not args.cpu:
         model.to(device)
-        #model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
+        model = torch.nn.DataParallel(model, device_ids=range(0,2))
     if (args.verbose):
         print(model)
 
@@ -189,9 +189,10 @@ if __name__=='__main__':
         exit(0)
 
     # start training
-    with tqdm.tqdm(range(1, 320)) as Loader:
-        for epoch in Loader:
-            adjust_learning_rate(optimizer, epoch)
-            train(epoch)
-            acc, bacc = test()
-            Loader.set_description("acc: %.2f best_acc: %.2f"%(acc, bacc))
+    for _ in tqdm.tqdm(range(3)):
+        with tqdm.tqdm(range(1, 320)) as Loader:
+            for epoch in Loader:
+                adjust_learning_rate(optimizer, epoch)
+                train(epoch)
+                acc, bacc = test()
+                Loader.set_description("acc: %.2f best_acc: %.2f"%(acc, bacc))
