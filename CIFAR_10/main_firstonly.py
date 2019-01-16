@@ -15,6 +15,33 @@ import tqdm
 from models import nin_halfadd as nin
 from torch.autograd import Variable
 
+def load_pretrained(model, filePath, same):
+    pretrained_model = torch.load(filePath)
+    useState_dict = model.state_dict()
+    preState_dict = pretrained_model['state_dict']
+    best_acc = pretrained_model['best_acc']
+    #print(pretrained_model['best_acc'])
+    if same:
+        useState_dict = preState_dict
+    else:
+        useKeys = useState_dict.keys()
+        preKeys = preState_dict.keys()
+        j = 0
+        for key in useKeys:
+            if j == 50:
+                j = 0
+            if key.find('num_batches_tracked') == -1:
+                useState_dict[key].data = preState_dict[preKeys[j]].data
+                j +=1
+                
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d) and (m.kernel_size == (5, 5)) and (not args.firstpretrained):
+            m.weight.data.normal_(0, 0.05)
+            m.bias.data.zero_()
+                
+    model.load_state_dict(useState_dict)
+    return model, best_acc
+
 def save_state(model, best_acc):
     if (args.verbose):
         print('==> Saving model ...')
@@ -26,7 +53,7 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/nin_halfadd.pth.tar')
+    torch.save(state, 'models/nin_firstonly.pth.tar')
 
 def train(epoch):
     model.train()
@@ -102,7 +129,7 @@ if __name__=='__main__':
             help='the architecture for the network: nin')
     parser.add_argument('--lr', action='store', default='0.01',
             help='the intial learning rate')
-    parser.add_argument('--pretrained', action='store', default=None,
+    parser.add_argument('--pretrained', action='store', default='nin.best.pth.tar',
             help='the path to the pretrained model')
     parser.add_argument('--evaluate', action='store_true',
             help='evaluate the model')
@@ -110,6 +137,12 @@ if __name__=='__main__':
             help='output details')
     parser.add_argument('--device', action='store', default='cuda:0',
             help='input the device you want to use')
+    parser.add_argument('--test_only', action='store_true', default=False,
+            help='only test')
+    parser.add_argument('--same', action='store_true', default=False,
+            help='if datas are the same')
+    parser.add_argument('--firstpretrained', action='store_true', default=False,
+            help='if use pretrained first layers')
     args = parser.parse_args()
     
     if (args.verbose):
@@ -158,9 +191,7 @@ if __name__=='__main__':
     else:
         if (args.verbose):
             print('==> Load pretrained model form', args.pretrained, '...')
-        pretrained_model = torch.load(args.pretrained)
-        best_acc = pretrained_model['best_acc']
-        model.load_state_dict(pretrained_model['state_dict'])
+        model, best_acc = load_pretrained(model, args.pretrained, args.same)
 
     if not args.cpu:
         model.to(device)
@@ -174,10 +205,12 @@ if __name__=='__main__':
     params = []
 
     for key, value in param_dict.items():
-        params += [{'params':[value], 'lr': base_lr,
-            'weight_decay':0.00001}]
+        if (key.find('conv1.') != -1) or (key.find('conv1_1.') != -1):
+            print(key)
+            params += [{'params':[value], 'lr': base_lr,
+                'weight_decay':0.00001}]
 
-        optimizer = optim.Adam(params, lr=0.10,weight_decay=0.00001)
+    optimizer = optim.Adam(params, lr=0.10,weight_decay=0.00001)
     criterion = nn.CrossEntropyLoss()
 
     # define the binarization operator
@@ -191,6 +224,10 @@ if __name__=='__main__':
     # start training
     with tqdm.tqdm(range(1, 320)) as Loader:
         for epoch in Loader:
+            if args.test_only:
+                acc, bacc = test()
+                print(acc)
+                exit()
             adjust_learning_rate(optimizer, epoch)
             train(epoch)
             acc, bacc = test()

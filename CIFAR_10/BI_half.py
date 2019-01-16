@@ -22,6 +22,7 @@ def load_pretrained(filePath, same):
     pretrained_model = torch.load(filePath)
     useState_dict = model.state_dict()
     preState_dict = pretrained_model['state_dict']
+    best_acc = pretrained_model['best_acc']
     if same:
         useState_dict = preState_dict
     else:
@@ -37,11 +38,11 @@ def load_pretrained(filePath, same):
     model.load_state_dict(useState_dict)
     model.to(device)
     model = torch.nn.DataParallel(model, device_ids=range(2))
-    return model
+    return model, best_acc
 
 def BitInverse(i, key, shape, same):
     
-    model = load_pretrained(args.pretrained, same)
+    model, best_acc = load_pretrained(args.pretrained, same)
     bin_op = util.BinOp(model)
     model.eval()
     bin_op.binarization()
@@ -52,7 +53,8 @@ def BitInverse(i, key, shape, same):
         size1 = shape[1]
         size2 = shape[2]
         size3 = shape[3]
-        (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+        if not args.testonly:
+            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
 
     if len(shape) == 1:
         state_dict[key][i].mul_(-1)
@@ -81,6 +83,8 @@ def test(i, key, shape, memoryData, same):
             
     bin_op.restore()
     acc = 100. * float(correct) / float(len(testloader.dataset))
+    if args.testonly:
+        print(acc)
     return acc
 
 
@@ -89,7 +93,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', action='store', default='./data/',
             help='dataset path')
-    parser.add_argument('--pretrained', action='store', default='nin_halfadd_best.pth.tar',
+    parser.add_argument('--pretrained', action='store', default='models/nin_halfadd.pth.tar',#default='nin_halfadd_best.pth.tar',
             help='the path to the pretrained model')
     parser.add_argument('--evaluate', action='store_true', default=True,
             help='evaluate the model')
@@ -97,8 +101,12 @@ if __name__=='__main__':
             help='display more information')
     parser.add_argument('--device', action='store', default='cuda:0',
             help='input the device you want to use')
-    parser.add_argument('--same', action='store_true', default=False,
+    parser.add_argument('--different', action='store_true', default=False,
             help='if use same model')
+    parser.add_argument('--testonly', action='store_true', default=False,
+            help='only perform tests')
+    parser.add_argument('--filename', action='store', default='',
+            help='specific filenames')
     args = parser.parse_args()
     if args.verbose:
         print('==> Options:',args)
@@ -124,14 +132,14 @@ if __name__=='__main__':
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     # define the model
-    model = load_pretrained(args.pretrained, True)
+    model, best_acc = load_pretrained(args.pretrained, True)
 
     # define the binarization operator
     bin_op = util.BinOp(model)
 
     # do the evaluation if specified
     if args.evaluate:
-        same = args.same
+        same = not args.different
         rand = False
         bypass = True
         randFactor = 4
@@ -139,11 +147,12 @@ if __name__=='__main__':
         tLoss = 0
         lMax = 0
         lAvg = 0
-        bestAcc = 86.84
+        bestAcc = best_acc
         save = []
         memoryData = []
 
-        find_key = "bconv2.conv.weight"
+        #find_key = "bconv2.conv.weight"
+        find_key = "conv1.weight"
         print(find_key)
         state_dict = model.state_dict()
     
@@ -163,6 +172,8 @@ if __name__=='__main__':
             start = time.time()
             for i in Loader:
                 acc = test(i, use_key, shape = shape, memoryData = memoryData, same = same)
+                if args.testonly:
+                    break
                 loss = bestAcc - acc
                 
                 if (acc != 100):
@@ -180,6 +191,8 @@ if __name__=='__main__':
                     np.save(find_key+'_tmp',save)
                     start = end
 
-        np.save(find_key+'.neg', save)
+        if args.testonly:
+            exit()
+        np.save(find_key+'.neg.'+args.filename, save)
         print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()

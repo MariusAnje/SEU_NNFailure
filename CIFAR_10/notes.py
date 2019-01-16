@@ -29,6 +29,20 @@ Avg 0.20%      0.20%
 Max 0.43%  0.54%  
 Avg -0.07% -0.10% 
 
+# Half_add Model, First only
+    1&1.1  2     3
+Max 0.63%  0.73% 0.62%
+Avg 0.10%  0.13% 0.10%
+
+# Half_add Model, First only, First from scratch
+    1
+Max 
+Avg 
+
+2. Why training first layers only may not work?
+   The two different layers, even retrained, have similar weights.
+
+
 one   [conv1, 1] [conv2, 0] [conv3, 0] [con4, 0] 
 point [conv1, 984, 0.0683] [conv2, 2481, 0.0807] [conv3, 167, 0.0109 ] [conv4, 11*96, 0.0023] [conv7, 0] [conv8, 0] [conv9, 5, 0.0026]
 
