@@ -15,6 +15,15 @@ import tqdm
 from models import nin_halfadd as nin
 from torch.autograd import Variable
 
+def diff_reg(the_model):
+    state_dict = the_model.state_dict()
+    #print(state_dict.keys())
+    conv1 = state_dict['module.conv1.weight']
+    conv2 = state_dict['module.conv1_1.weight']
+    relative = 2 * (conv1 - conv2)/(abs(conv1) + abs(conv2))
+    return 1 - relative.sum()/conv1.view(-1).size()[0]
+    
+
 def load_pretrained(model, filePath, same):
     pretrained_model = torch.load(filePath)
     useState_dict = model.state_dict()
@@ -53,34 +62,41 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/nin_firstonly.pth.tar')
+    torch.save(state, 'models/nin_firstonly.'+ args.filename +'.pth.tar')
 
 def train(epoch):
     model.train()
-    for batch_idx, (data, target) in enumerate(tqdm.tqdm(trainloader, leave = False)):
-        # process the weights including binarization
-        bin_op.binarization()
-        
-        # forwarding
-        data, target = data.to(device), target.to(device)
-        optimizer.zero_grad()
-        output = model(data)
-        
-        # backwarding
-        loss = criterion(output, target)
-        loss.backward()
-        
-        # restore weights
-        bin_op.restore()
-        bin_op.updateBinaryGradWeight()
-        
-        optimizer.step()
-        if batch_idx % 100 == 0 and (args.verbose):
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(
-                epoch, batch_idx * len(data), len(trainloader.dataset),
-                100. * batch_idx / len(trainloader), loss.data.item(),
-                optimizer.param_groups[0]['lr']))
-    return
+    with tqdm.tqdm(trainloader, leave = False) as Loader:
+        tLoss = 0
+        regC = 1e2
+        for batch_idx, (data, target) in enumerate(Loader):
+            # process the weights including binarization
+            bin_op.binarization()
+
+            # forwarding
+            data, target = data.to(device), target.to(device)
+            optimizer.zero_grad()
+            output = model(data)
+
+            # backwarding
+            cLoss = criterion(output, target)
+            tLoss += cLoss
+            regLoss = regC * diff_reg(model)
+            loss = cLoss + regLoss
+            Loader.set_description("c: %.2f, r: %f"%(cLoss, regLoss))
+            loss.backward()
+
+            # restore weights
+            bin_op.restore()
+            bin_op.updateBinaryGradWeight()
+
+            optimizer.step()
+            if batch_idx % 100 == 0 and (args.verbose):
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(
+                    epoch, batch_idx * len(data), len(trainloader.dataset),
+                    100. * batch_idx / len(trainloader), loss.data.item(),
+                    optimizer.param_groups[0]['lr']))
+    return tLoss/(batch_idx + 1)
 
 def test():
     global best_acc
@@ -137,6 +153,8 @@ if __name__=='__main__':
             help='output details')
     parser.add_argument('--device', action='store', default='cuda:0',
             help='input the device you want to use')
+    parser.add_argument('--filename', action='store', default='',
+            help='additional file names')
     parser.add_argument('--test_only', action='store_true', default=False,
             help='only test')
     parser.add_argument('--same', action='store_true', default=False,
@@ -195,7 +213,8 @@ if __name__=='__main__':
 
     if not args.cpu:
         model.to(device)
-        model = torch.nn.DataParallel(model, device_ids=range(0,2))
+        if args.device == 'cuda:0':
+            model = torch.nn.DataParallel(model, device_ids=[0,2,3])
     if (args.verbose):
         print(model)
 
@@ -229,6 +248,6 @@ if __name__=='__main__':
                 print(acc)
                 exit()
             adjust_learning_rate(optimizer, epoch)
-            train(epoch)
+            avg = train(epoch)
             acc, bacc = test()
-            Loader.set_description("acc: %.2f best_acc: %.2f"%(acc, bacc))
+            Loader.set_description("loss: %.2f acc: %.2f best_acc: %.2f"%(avg, acc, bacc))

@@ -39,6 +39,11 @@ Avg 0.10%  0.13% 0.10%
 Max 
 Avg 
 
+# Half_add Model, add after ReLU
+    1      1_1
+Max 0.37%  0.43%
+Avg -0.09% -0.09%
+
 2. Why training first layers only may not work?
    The two different layers, even retrained, have similar weights.
 

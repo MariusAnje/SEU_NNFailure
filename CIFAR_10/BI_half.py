@@ -37,7 +37,7 @@ def load_pretrained(filePath, same):
                 j +=1
     model.load_state_dict(useState_dict)
     model.to(device)
-    model = torch.nn.DataParallel(model, device_ids=range(2))
+    model = torch.nn.DataParallel(model, device_ids=[0, 2, 3])
     return model, best_acc
 
 def BitInverse(i, key, shape, same):

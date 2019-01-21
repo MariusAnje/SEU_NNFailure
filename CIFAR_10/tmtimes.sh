@@ -1,8 +1,8 @@
-
-cp models/nin_halfadd.pth.tar models/nin_halfadd.pth.tar.1
-python main_halfadd.py --pretrained models/nin_halfadd.pth.tar
-cp models/nin_halfadd.pth.tar models/nin_halfadd.pth.tar.2
-python main_halfadd.py --pretrained models/nin_halfadd.pth.tar
-cp models/nin_halfadd.pth.tar models/nin_halfadd.pth.tar.3
-python main_halfadd.py --pretrained models/nin_halfadd.pth.tar
-cp nin_halfadd.pth.tar models/nin_halfadd.pth.tar.4
+python main_halfadd_after.py
+cp models/nin_halfaddafter.pth.tar models/nin_halfaddafter.1.pth.tar
+python main_halfadd_after.py --pretrained models/nin_halfaddafter.pth.tar
+cp models/nin_halfaddafter.pth.tar models/nin_halfaddafter.2.pth.tar
+python main_halfadd_after.py --pretrained models/nin_halfaddafter.pth.tar
+cp models/nin_halfaddafter.pth.tar models/nin_halfaddafter.3.pth.tar
+python main_halfadd_after.py --pretrained models/nin_halfaddafter.pth.tar
+cp models/nin_halfaddafter.pth.tar models/nin_halfaddafter.4.pth.tar
