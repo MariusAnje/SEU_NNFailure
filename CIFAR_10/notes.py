@@ -35,9 +35,9 @@ Max 0.63%  0.73% 0.62%
 Avg 0.10%  0.13% 0.10%
 
 # Half_add Model, First only, First from scratch
-    1
-Max 
-Avg 
+    1    "Using diff" 1     1_1
+Max                   0.64% 0.64%
+Avg                   0.05% 0.05%
 
 # Half_add Model, add after ReLU
     1      1_1

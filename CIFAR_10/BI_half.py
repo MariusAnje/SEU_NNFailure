@@ -125,7 +125,7 @@ if __name__=='__main__':
 
     testset = data.dataset(root=args.data, train=False)
     testloader = torch.utils.data.DataLoader(testset,
-                                 batch_size=1024, shuffle=False, num_workers=4)
+                                 batch_size=2048, shuffle=False, num_workers=8)
 
     # define classes
     classes = ('plane', 'car', 'bird', 'cat',
@@ -152,7 +152,7 @@ if __name__=='__main__':
         memoryData = []
 
         #find_key = "bconv2.conv.weight"
-        find_key = "conv1.weight"
+        find_key = "conv1_1.weight"
         print(find_key)
         state_dict = model.state_dict()
     

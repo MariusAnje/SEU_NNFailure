@@ -16,11 +16,10 @@ from models import nin_halfadd as nin
 from torch.autograd import Variable
 
 def diff_reg(the_model):
-    state_dict = the_model.state_dict()
-    #print(state_dict.keys())
-    conv1 = state_dict['module.conv1.weight']
-    conv2 = state_dict['module.conv1_1.weight']
-    relative = 2 * (conv1 - conv2)/(abs(conv1) + abs(conv2))
+    #print(dict(the_model.named_parameters()))
+    conv1 = dict(the_model.named_parameters())['module.conv1.weight']
+    conv2 = dict(the_model.named_parameters())['module.conv1_1.weight']
+    relative = abs(conv1 - conv2)/(abs(conv1) + abs(conv2))
     return 1 - relative.sum()/conv1.view(-1).size()[0]
     
 
@@ -68,7 +67,7 @@ def train(epoch):
     model.train()
     with tqdm.tqdm(trainloader, leave = False) as Loader:
         tLoss = 0
-        regC = 1e2
+        regC = 0.1
         for batch_idx, (data, target) in enumerate(Loader):
             # process the weights including binarization
             bin_op.binarization()
@@ -81,8 +80,8 @@ def train(epoch):
             # backwarding
             cLoss = criterion(output, target)
             tLoss += cLoss
-            regLoss = regC * diff_reg(model)
-            loss = cLoss + regLoss
+            regLoss = diff_reg(model)
+            loss = cLoss + regC * max(regLoss, 0.5)
             Loader.set_description("c: %.2f, r: %f"%(cLoss, regLoss))
             loss.backward()
 
@@ -210,11 +209,13 @@ if __name__=='__main__':
         if (args.verbose):
             print('==> Load pretrained model form', args.pretrained, '...')
         model, best_acc = load_pretrained(model, args.pretrained, args.same)
+        if not args.firstpretrained:
+            best_acc = 0
 
     if not args.cpu:
         model.to(device)
         if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0,2,3])
+            model = torch.nn.DataParallel(model, device_ids=[0,1,3])
     if (args.verbose):
         print(model)
 
