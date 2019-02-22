@@ -11,7 +11,7 @@ import util_fuc as util
 import torch.nn as nn
 import torch.optim as optim
 
-from models import nin_halfadd
+from models import nin_halfaddafter as nin_halfadd
 from torch.autograd import Variable
 import tqdm
 import time
@@ -30,13 +30,14 @@ def load_pretrained(filePath, same):
         preKeys = preState_dict.keys()
         j = 0
         for key in useKeys:
-            if j == 59:
+            if j == 50:
                 j = 0
-            useState_dict[key].data = preState_dict[preKeys[j]].data
-            j +=1
+            if key.find('num_batches_tracked') == -1:
+                useState_dict[key].data = preState_dict[preKeys[j]].data
+                j +=1
     model.load_state_dict(useState_dict)
     model.to(device)
-    model = torch.nn.DataParallel(model, device_ids=[0, 1, 2, 3])
+    model = torch.nn.DataParallel(model, device_ids=range(2))
     return model, best_acc
 
 def BitInverse(i, key, shape, same):
@@ -124,14 +125,14 @@ if __name__=='__main__':
 
     testset = data.dataset(root=args.data, train=False)
     testloader = torch.utils.data.DataLoader(testset,
-                                 batch_size=2048, shuffle=False, num_workers=8)
+                                 batch_size=1024, shuffle=False, num_workers=4)
 
     # define classes
     classes = ('plane', 'car', 'bird', 'cat',
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     # define the model
-    model, best_acc = load_pretrained(args.pretrained, (not args.different))
+    model, best_acc = load_pretrained(args.pretrained, True)
 
     # define the binarization operator
     bin_op = util.BinOp(model)

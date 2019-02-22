@@ -7,18 +7,18 @@ import os
 import torch
 import argparse
 import data
-import util_fuc as util
+import util
 import torch.nn as nn
 import torch.optim as optim
 
-from models import nin_halfadd
+from models import nin
 from torch.autograd import Variable
 import tqdm
 import time
 import numpy as np
 
 def load_pretrained(filePath, same):
-    model = nin_halfadd.Net()
+    model = nin.Net()
     pretrained_model = torch.load(filePath)
     useState_dict = model.state_dict()
     preState_dict = pretrained_model['state_dict']
@@ -39,6 +39,11 @@ def load_pretrained(filePath, same):
     model = torch.nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     return model, best_acc
 
+def bit_inverse_ex(x):
+    Expo = (x.log2().floor())
+    num = x * pow(2,2 * (-Expo))
+    return num
+
 def BitInverse(i, key, shape, same):
     
     model, best_acc = load_pretrained(args.pretrained, same)
@@ -53,14 +58,14 @@ def BitInverse(i, key, shape, same):
         size2 = shape[2]
         size3 = shape[3]
         if not args.testonly:
-            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]) = bit_inverse_ex(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)])
 
     if len(shape) == 1:
-        state_dict[key][i].mul_(-1)
+        state_dict[key][i] = bit_inverse_ex(state_dict[key][i])
 
     if len(shape) == 2:
         size = state_dict[key].shape[1]
-        (state_dict[key][int(i/size)][i%size]).mul_(-1)
+        (state_dict[key][int(i/size)][i%size]) = bit_inverse_ex(state_dict[key][int(i/size)][i%size])
     
     model.load_state_dict(state_dict)
     model.eval()
@@ -150,8 +155,7 @@ if __name__=='__main__':
         save = []
         memoryData = []
 
-        #find_key = "bconv2.conv.weight"
-        find_key = "conv1_1.weight"
+        find_key = "1.conv.weight"
         print(find_key)
         state_dict = model.state_dict()
     
@@ -192,6 +196,6 @@ if __name__=='__main__':
 
         if args.testonly:
             exit()
-        np.save(find_key+'.neg.'+args.filename, save)
+        np.save(find_key+'.Ex.'+args.filename, save)
         print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()

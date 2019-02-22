@@ -61,7 +61,7 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(3, 192, kernel_size=5, stride=1, padding=2)
         self.bn1 = nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False)
         self.relu1 = nn.ReLU(inplace=True)
-        self.bconv2 = BinConv2d(192, 160, kernel_size=1, stride=1, padding=0, dropout=0.5)
+        self.bconv2 = BinConv2d(192, 160, kernel_size=1, stride=1, padding=0)
         self.bconv3 = BinConv2d(160,  96, kernel_size=1, stride=1, padding=0)
         self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -84,12 +84,11 @@ class Net(nn.Module):
     def forward(self, x):
         x_0 = self.conv1(x)
         x_0 = self.bn1(x_0)
-        #x_0 = self.relu1(x_0)
+        x_0 = self.relu1(x_0)
         x_1 = self.conv1_1(x)
         x_1 = self.bn1_1(x_1)
-        #x_1 = self.relu1_1(x_1)
+        x_1 = self.relu1_1(x_1)
         x = (x_0 + x_1)/2
-        x = self.relu1(x)
         x = self.bconv2(x)
         x = self.bconv3(x)
         x = self.pool1(x)

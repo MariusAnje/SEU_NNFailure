@@ -7,23 +7,13 @@ import os
 import torch
 import argparse
 import data
-import util_fuc as util
+import util as util
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
 
-from models import nin_halfadd as nin
+from models import nin_crazy as nin
 from torch.autograd import Variable
-
-def diff_reg(the_model):
-    if 'module' in dict(the_model.named_parameters()).keys()[0]:
-        conv1 = dict(the_model.named_parameters())['module.conv1.weight']
-        conv2 = dict(the_model.named_parameters())['module.conv1_1.weight']
-    else:
-        conv1 = dict(the_model.named_parameters())['conv1.weight']
-        conv2 = dict(the_model.named_parameters())['conv1_1.weight']
-    relative = abs(conv1 - conv2)/(abs(conv1) + abs(conv2))
-    return 1 - relative.sum()/conv1.view(-1).size()[0]
     
 
 def load_pretrained(model, filePath, same):
@@ -39,19 +29,17 @@ def load_pretrained(model, filePath, same):
         preKeys = preState_dict.keys()
         j = 0
         for key in useKeys:
-            if j == 50:
-                j = 0
             if key.find('num_batches_tracked') == -1:
                 useState_dict[key].data = preState_dict[preKeys[j]].data
                 j +=1
-                
+     
     model.load_state_dict(useState_dict)
     
     for m in model.modules():
-        if isinstance(m, nn.Conv2d) and (m.kernel_size == (5, 5)) and (not args.firstpretrained):
+        if isinstance(m, nn.Conv2d) and (m.in_channels == 3) and (not args.firstpretrained):
             m.weight.data.normal_(0, 0.05)
-            m.bias.data.zero_()
-                
+            m.bias.data.zero_()          
+    
     return model, best_acc
 
 def save_state(model, best_acc):
@@ -65,7 +53,7 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/nin_firstonly.'+ args.filename +'.pth.tar')
+    torch.save(state, 'models/nin_crazy.'+ args.filename +'.pth.tar')
 
 def train(epoch):
     model.train()
@@ -84,9 +72,11 @@ def train(epoch):
             # backwarding
             cLoss = criterion(output, target)
             tLoss += cLoss
-            regLoss = diff_reg(model)
-            loss = cLoss + regC * max(regLoss, 0.5)
-            Loader.set_description("c: %.2f, r: %f"%(cLoss, regLoss))
+            #regLoss = diff_reg(model)
+            #loss = cLoss + regC * max(regLoss, 0.5)
+            loss = cLoss
+            #Loader.set_description("c: %.2f, r: %f"%(cLoss, regLoss))
+            Loader.set_description("c: %.2f"%(cLoss))
             loss.backward()
 
             # restore weights
@@ -131,7 +121,7 @@ def test():
     return acc, best_acc
 
 def adjust_learning_rate(optimizer, epoch):
-    update_list = [120, 200, 240, 280]
+    update_list = [40, 120, 200, 280]
     if epoch in update_list:
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
@@ -181,7 +171,7 @@ if __name__=='__main__':
                 ('Please assign the correct data path with --data <DATA_PATH>')
 
     trainset = data.dataset(root=args.data, train=True)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=256,
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
             shuffle=True, num_workers=4)
 
     testset = data.dataset(root=args.data, train=False)
@@ -219,7 +209,7 @@ if __name__=='__main__':
     if not args.cpu:
         model.to(device)
         if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0,1,3])
+            model = torch.nn.DataParallel(model, device_ids=[0,1,2,3])
     if (args.verbose):
         print(model)
 
@@ -229,7 +219,7 @@ if __name__=='__main__':
     params = []
 
     for key, value in param_dict.items():
-        if (key.find('conv1.') != -1) or (key.find('conv1_1.') != -1):
+        if (key.find('xnor.0.') != -1) or (key.find('xnor.1.') != -1):
             print(key)
             params += [{'params':[value], 'lr': base_lr,
                 'weight_decay':0.00001}]
@@ -241,17 +231,14 @@ if __name__=='__main__':
     bin_op = util.BinOp(model)
 
     # do the evaluation if specified
-    if args.evaluate:
-        test()
+    if args.test_only:
+        acc, bacc = test()
+        print(acc)
         exit(0)
 
     # start training
     with tqdm.tqdm(range(1, 320)) as Loader:
         for epoch in Loader:
-            if args.test_only:
-                acc, bacc = test()
-                print(acc)
-                exit()
             adjust_learning_rate(optimizer, epoch)
             avg = train(epoch)
             acc, bacc = test()
