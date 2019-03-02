@@ -58,6 +58,11 @@ rate M   A
 1  0.78% 0.28%
 2  0.65% 0.04%
 
+# Dropout rand
+2before 0.70% 0.07%
+2after  0.62% 0.05%
+3before 0.63% 0.05%
+
 2. Why training first layers only may not work?
    The two different layers, even retrained, have similar weights.
 

@@ -63,6 +63,28 @@ class zDropout2D(nn.Module):
             return Output
         else:
             return Input
+        
+class rDropout2D(nn.Module):
+    """
+    Dropout without multiplication
+    """                            
+    def __init__(self):
+        super(rDropout2D, self).__init__()
+
+    def forward(self, Input):
+        if self.training:
+            theShape = Input.size()
+            Output = Input * 1.
+            for _ in range(3):
+                index = int(torch.randint(0,theShape[1],[1]))
+                for i in range (len(Input)):
+                    mean = float(Input[i,index,:,:].mean())
+                    std =  float(Input[i,index,:,:].std())
+                    size = Input[i,index,:,:].size()
+                    Output[i,index,:,:] = torch.normal(mean = mean * torch.ones(size), std = std)
+            return Output
+        else:
+            return Input
 
 class Net(nn.Module):
     def __init__(self):
@@ -72,6 +94,37 @@ class Net(nn.Module):
                 nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False),
                 nn.ReLU(inplace=True),
                 zDropout2D(),
+                BinConv2d(192, 160, kernel_size=1, stride=1, padding=0),
+                BinConv2d(160,  96, kernel_size=1, stride=1, padding=0),
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+
+                BinConv2d( 96, 192, kernel_size=5, stride=1, padding=2, dropout=0.5),
+                BinConv2d(192, 192, kernel_size=1, stride=1, padding=0),
+                BinConv2d(192, 192, kernel_size=1, stride=1, padding=0),
+                nn.AvgPool2d(kernel_size=3, stride=2, padding=1),
+
+                BinConv2d(192, 192, kernel_size=3, stride=1, padding=1, dropout=0.5),
+                BinConv2d(192, 192, kernel_size=1, stride=1, padding=0),
+                nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False),
+                nn.Conv2d(192,  10, kernel_size=1, stride=1, padding=0),
+                nn.ReLU(inplace=True),
+                nn.AvgPool2d(kernel_size=8, stride=1, padding=0),
+                )
+
+    def forward(self, x):
+        x = self.xnor(x)
+        x = x.view(x.size(0), 10)
+        return x
+
+
+class randNet(nn.Module):
+    def __init__(self):
+        super(randNet, self).__init__()
+        self.xnor = nn.Sequential(
+                nn.Conv2d(3, 192, kernel_size=5, stride=1, padding=2),
+                nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False),
+                nn.ReLU(inplace=True),
+                rDropout2D(),
                 BinConv2d(192, 160, kernel_size=1, stride=1, padding=0),
                 BinConv2d(160,  96, kernel_size=1, stride=1, padding=0),
                 nn.MaxPool2d(kernel_size=3, stride=2, padding=1),

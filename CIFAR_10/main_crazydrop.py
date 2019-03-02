@@ -53,7 +53,7 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/nin_crazy.'+ args.filename +'.pth.tar')
+    torch.save(state, 'models/'+args.arch + '_crazy.'+ args.filename +'.pth.tar')
 
 def train(epoch):
     model.train()
@@ -140,8 +140,6 @@ if __name__=='__main__':
             help='the intial learning rate')
     parser.add_argument('--pretrained', action='store', default='nin.best.pth.tar',
             help='the path to the pretrained model')
-    parser.add_argument('--evaluate', action='store_true',
-            help='evaluate the model')
     parser.add_argument('--verbose', action='store_true',
             help='output details')
     parser.add_argument('--device', action='store', default='cuda:0',
@@ -187,6 +185,8 @@ if __name__=='__main__':
         print('==> building model',args.arch,'...')
     if args.arch == 'nin':
         model = nin.Net()
+    if args.arch == 'rand':
+        model = nin.randNet()
     else:
         raise Exception(args.arch+' is currently not supported')
 
@@ -209,7 +209,7 @@ if __name__=='__main__':
     if not args.cpu:
         model.to(device)
         if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0,1,2,3])
+            model = torch.nn.DataParallel(model, device_ids=[0,2,3])
     if (args.verbose):
         print(model)
 
