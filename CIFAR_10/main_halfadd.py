@@ -26,7 +26,7 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/nin_halfadd.pth.tar')
+    torch.save(state, 'models/nin_halfaddMarch.pth.tar')
 
 def train(epoch):
     model.train()
@@ -164,7 +164,7 @@ if __name__=='__main__':
 
     if not args.cpu:
         model.to(device)
-        model = torch.nn.DataParallel(model, device_ids=range(0,2))
+        model = torch.nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     if (args.verbose):
         print(model)
 

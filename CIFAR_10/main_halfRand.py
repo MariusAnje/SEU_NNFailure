@@ -7,12 +7,12 @@ import os
 import torch
 import argparse
 import data
-import util as util
+import util_fuc as util
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
 
-from models import nin_crazy as nin
+from models import nin_halfaddRand as nin
 from torch.autograd import Variable
     
 
@@ -122,7 +122,7 @@ def test():
 
 def adjust_learning_rate(optimizer, epoch):
     if args.all:
-        update_list = [120, 200, 240, 280]
+        update_list = [60, 120, 200, 240, 280]
     else:
         update_list = [40, 120, 200, 280]
     if epoch in update_list:
@@ -189,7 +189,7 @@ if __name__=='__main__':
     if (args.verbose):
         print('==> building model',args.arch,'...')
     if args.arch == 'nin':
-        model = nin.Net()
+        model = nin.randNet()
     if args.arch == 'rand':
         model = nin.randNet()
     else:
@@ -214,7 +214,7 @@ if __name__=='__main__':
     if not args.cpu:
         model.to(device)
         if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0,2,3])
+            model = torch.nn.DataParallel(model, device_ids=[0, 3])
     if (args.verbose):
         print(model)
 
@@ -224,15 +224,9 @@ if __name__=='__main__':
     params = []
 
     for key, value in param_dict.items():
-        if args.all:
-            params += [{'params':[value], 'lr': base_lr,
-                'weight_decay':0.00001}]
-        else:
-            if (key.find('xnor.0.') != -1) or (key.find('xnor.1.') != -1):
-                print(key)
-                params += [{'params':[value], 'lr': base_lr,
-                    'weight_decay':0.00001}]
-
+        params += [{'params':[value], 'lr': base_lr,
+            'weight_decay':0.00001}]
+        
     optimizer = optim.Adam(params, lr=0.10,weight_decay=0.00001)
     criterion = nn.CrossEntropyLoss()
 

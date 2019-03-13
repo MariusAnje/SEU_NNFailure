@@ -4,9 +4,9 @@ import torch.nn.functional as F
 from   blocks import *
 
 
-class Net(nn.Module):
+class randNet(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(randNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 192, kernel_size=5, stride=1, padding=2)
         self.bn1 = nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False)
         self.relu1 = nn.ReLU(inplace=True)
@@ -29,6 +29,8 @@ class Net(nn.Module):
         self.conv1_1 = nn.Conv2d(3, 192, kernel_size=5, stride=1, padding=2)
         self.bn1_1 = nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False)
         self.relu1_1 = nn.ReLU(inplace=True)
+        
+        self.drop = rDropout2D(2)
 
     def forward(self, x):
         x_0 = self.conv1(x)
@@ -37,6 +39,7 @@ class Net(nn.Module):
         x_1 = self.bn1_1(x_1)
         x = (x_0 + x_1)/2
         x = self.relu1(x)
+        x = self.drop(x)
         x = self.bconv2(x)
         x = self.bconv3(x)
         x = self.pool1(x)

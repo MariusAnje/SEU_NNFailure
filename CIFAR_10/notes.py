@@ -33,6 +33,8 @@ Avg 0.20%      0.20%
     1      2      3
 Max 0.43%  0.54%  
 Avg -0.07% -0.10% 
+Max 0.55%
+Avg 0.07%
 
 # Half_add Model, First only
     1&1.1  2     3
@@ -49,19 +51,31 @@ Avg                   0.05% 0.05%
 Max 0.37%  0.43%
 Avg -0.09% -0.09%
 
-# Dropout
+# Dropout half
 rate M   A
 0.05 0.74 0.10
 
-# Dropout without scaling
+# Dropout without scaling half
 rate M   A
 1  0.78% 0.28%
 2  0.65% 0.04%
 
-# Dropout rand
+# Dropout rand half
 2before 0.70% 0.07%
 2after  0.62% 0.05%
 3before 0.63% 0.05%
+
+# Dropout rand
+1after 1.01% 0.27%
+2after 0.66% 0.06%
+2before 0.89% 0.10%
+3after 0.64% 0.07%
+
+# Dropout rand all
+2after 0.62% 0.06%
+
+# Dropout rand halfadd all
+2after 0.79% 0.13%
 
 2. Why training first layers only may not work?
    The two different layers, even retrained, have similar weights.
