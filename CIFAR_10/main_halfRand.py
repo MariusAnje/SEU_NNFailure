@@ -121,10 +121,7 @@ def test():
     return acc, best_acc
 
 def adjust_learning_rate(optimizer, epoch):
-    if args.all:
-        update_list = [60, 120, 200, 240, 280]
-    else:
-        update_list = [40, 120, 200, 280]
+    update_list = [120, 200, 240, 280]
     if epoch in update_list:
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
@@ -214,7 +211,7 @@ if __name__=='__main__':
     if not args.cpu:
         model.to(device)
         if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0, 3])
+            model = torch.nn.DataParallel(model, device_ids=[0, 2, 3])
     if (args.verbose):
         print(model)
 

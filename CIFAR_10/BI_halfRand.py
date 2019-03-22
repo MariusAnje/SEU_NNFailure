@@ -39,7 +39,7 @@ def load_pretrained(filePath, same):
     model.load_state_dict(useState_dict)
     model.to(device)
     if args.device == 'cuda:0' and not args.testonly:
-        model = torch.nn.DataParallel(model, device_ids=[0, 2, 3])
+        model = torch.nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     return model, best_acc
 
 def BitInverse(i, key, shape, same):
@@ -65,7 +65,8 @@ def BitInverse(i, key, shape, same):
         size = state_dict[key].shape[1]
         (state_dict[key][int(i/size)][i%size]).mul_(-1)
     
-    model.load_state_dict(state_dict)
+    if not args.testonly:
+        model.load_state_dict(state_dict)
     model.eval()
     return model
 

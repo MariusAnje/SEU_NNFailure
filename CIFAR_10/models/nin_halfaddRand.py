@@ -30,7 +30,7 @@ class randNet(nn.Module):
         self.bn1_1 = nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False)
         self.relu1_1 = nn.ReLU(inplace=True)
         
-        self.drop = rDropout2D(2)
+        self.drop = rDropout2D(1)
 
     def forward(self, x):
         x_0 = self.conv1(x)

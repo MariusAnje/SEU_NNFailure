@@ -75,7 +75,17 @@ rate M   A
 2after 0.62% 0.06%
 
 # Dropout rand halfadd all
-2after 0.79% 0.13%
+2after 0.53% -0.03%
+
+# Dropout rand halfadd firstonly
+2after 0.58% 0.02%
+
+# Plus Destroy
+1after  0.88% 0.16%
+1before 0.80% 0.13%
+2before 0.69% 0.08%
+3before 0.65% 0.10%
+3after  0.72% 0.10%
 
 2. Why training first layers only may not work?
    The two different layers, even retrained, have similar weights.

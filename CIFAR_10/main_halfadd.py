@@ -164,7 +164,7 @@ if __name__=='__main__':
 
     if not args.cpu:
         model.to(device)
-        model = torch.nn.DataParallel(model, device_ids=[0, 1, 2, 3])
+        model = torch.nn.DataParallel(model, device_ids=[0, 2, 3])
     if (args.verbose):
         print(model)
 

@@ -213,7 +213,7 @@ if __name__=='__main__':
     if not args.cpu:
         model.to(device)
         if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0, 3])
+            model = torch.nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     if (args.verbose):
         print(model)
 
@@ -240,6 +240,7 @@ if __name__=='__main__':
         test()
         exit(0)
 
+    """
     # start training
     with tqdm.tqdm(range(1, 320)) as Loader:
         bloss = 10000
@@ -264,3 +265,10 @@ if __name__=='__main__':
             acc, bacc = test()
             Loader.set_description("fl: %d lr: %d loss: %.2f acc: %.2f best_acc: %.2f"%(flag, np.log10(the_lr), avg, acc, bacc))
             #Loader.set_description("fl: %d lr: %d loss: %.2f acc: %.2f best_acc: %.2f"%(flag, 0, avg, acc, bacc))
+    """
+    with tqdm.tqdm(range(1, 320)) as Loader:
+        for epoch in Loader:
+            adjust_learning_rate(optimizer, epoch)
+            avg = train(epoch)
+            acc, bacc = test()
+            Loader.set_description("loss: %.2f acc: %.2f best_acc: %.2f"%(avg, acc, bacc))

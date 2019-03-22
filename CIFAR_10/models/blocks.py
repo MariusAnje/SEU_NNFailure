@@ -64,7 +64,7 @@ class zDropout2D(nn.Module):
         else:
             return Input
         
-class rDropout2D(nn.Module):
+class rDropout2D_bak(nn.Module):
     """
     Dropout without multiplication
     """                            
@@ -86,6 +86,56 @@ class rDropout2D(nn.Module):
             return Output
         else:
             return Input
+
+class rDropout2D_bak1(nn.Module):
+    """
+    Dropout without multiplication
+    """                            
+    def __init__(self, dropnum):
+        super(rDropout2D, self).__init__()
+        self.dropnum = dropnum
+
+    def forward(self, Input):
+        if self.training:
+            theShape = Input.size()
+            #Output = Input * 1.
+            #utput = Input
+            for _ in range(self.dropnum):
+                index = int(torch.randint(0,theShape[1],[1]))
+                for i in range (len(Input)):
+                    mean = Input[i,index,:,:].mean()
+                    std =  Input[i,index,:,:].std()
+                    size = Input[i,index,:,:].size()
+                    Input[i,index,:,:].data = (torch.randn(size) + mean) * std
+            return Input
+        else:
+            return Input
+
+class rDropout2D(nn.Module):
+    """
+    Dropout without multiplication
+    """                            
+    def __init__(self, dropnum):
+        super(rDropout2D, self).__init__()
+        self.dropnum = dropnum
+
+    def forward(self, Input):
+        if self.training:
+            theShape = Input.size()
+            #Output = Input * 1.
+            #utput = Input
+            for _ in range(self.dropnum):
+                index = int(torch.randint(0,theShape[1],[1]))
+                for i in range (len(Input)):
+                    mean = Input[i,index,:,:].mean()
+                    std =  Input[i,index,:,:].std()
+                    size = Input[i,index,:,:].size()
+                    Input[i,index,:,:].data = Input[i,index,:,:] + ((torch.randn_like(Input[i,index,:,:]) + mean) * std).data
+            return Input
+        else:
+            return Input
+
+
         
 class StoreActivation(nn.Module):
     def __init__(self, name):

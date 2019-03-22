@@ -42,7 +42,7 @@ def load_pretrained(filePath, same):
     model.load_state_dict(useState_dict)
     model.to(device)
     if args.device == 'cuda:0':
-        model = torch.nn.DataParallel(model, device_ids=[0, 1, 3])
+        model = torch.nn.DataParallel(model, device_ids=[0,2,3])
     return model, best_acc
 
 def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryData = None, same = False):

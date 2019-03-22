@@ -41,7 +41,7 @@ class randNet(nn.Module):
                 nn.Conv2d(3, 192, kernel_size=5, stride=1, padding=2),
                 nn.BatchNorm2d(192, eps=1e-4, momentum=0.1, affine=False),
                 nn.ReLU(inplace=True),
-                rDropout2D(1),
+                rDropout2D(3),
                 BinConv2d(192, 160, kernel_size=1, stride=1, padding=0),
                 BinConv2d(160,  96, kernel_size=1, stride=1, padding=0),
                 nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
