@@ -109,7 +109,8 @@ class ResNet_Cifar(nn.Module):
         self.layer3 = self._make_layer(block, 64, layers[2], stride=2)
         self.avgpool = nn.AvgPool2d(8, stride=1)
         self.fc = nn.Linear(64 * block.expansion, num_classes)
-        self.rDrop = blocks.rDropout2D(3)
+        self.conv1_1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1_1 = nn.BatchNorm2d(16)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -136,10 +137,13 @@ class ResNet_Cifar(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
+        x1  = self.conv1(x)
+        x1_1 = self.conv1_1(x)
+        x1  = self.bn1(x1)
+        x1_1 = self.bn1_1(x1_1)
+        x = (x1 + x1_1)/2
+        
         x = self.relu(x)
-        x = self.rDrop(x)
 
         x = self.layer1(x)
         x = self.layer2(x)

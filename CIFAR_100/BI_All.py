@@ -179,7 +179,7 @@ if __name__=='__main__':
         keyList = []
         flaggg = False
         for key in state_dict.keys():
-            if key.find('layer2.5') != -1:
+            if key.find('layer2.7.conv2') != -1:
                 flaggg = True
             if key.find('conv') != -1 and flaggg:
                 keyList += [key]

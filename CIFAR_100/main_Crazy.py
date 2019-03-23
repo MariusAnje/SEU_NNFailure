@@ -19,7 +19,8 @@ def load_pretrained(model, filePath, same):
     pretrained_model = torch.load(filePath)
     useState_dict = model.state_dict()
     preState_dict = pretrained_model['state_dict']
-    best_acc = pretrained_model['best_acc']
+    #best_acc = pretrained_model['best_acc']
+    best_acc = 0
     #print(pretrained_model['best_acc'])
     if same:
         useState_dict = preState_dict
@@ -128,7 +129,7 @@ if __name__=='__main__':
             help='the architecture for the network: res20')
     parser.add_argument('--lr', action='store', default='0.1',
             help='the intial learning rate')
-    parser.add_argument('--pretrained', action='store', default=None,
+    parser.add_argument('--pretrained', action='store', default='models/res56.best.pth.tar',
             help='the path to the pretrained model')
     parser.add_argument('--verbose', action='store_true',
             help='output details')
