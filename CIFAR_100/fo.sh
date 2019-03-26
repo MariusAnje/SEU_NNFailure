@@ -1,7 +1,5 @@
-python main_Crazy.py  --filename plus2 --arch 56 --pretrained models/res56.best.pth.tar
-python BI.py --filename plus2 --arch 56 --pretrained models/56.plus2.crazy.pth.tar
-python main_Crazy.py  --filename plus3 --arch 56 --pretrained models/res56.best.pth.tar
-python BI.py --filename plus3 --arch 56 --pretrained models/56.plus3.crazy.pth.tar
-python main_firstonly.py --filename firstonly --arch 56 --pretrained models/res56.best.pth.tar
-python BI_Half.py --filename firstonly --arch 56 --pretrained models/56.firstonly.firstonly.pth.tar
-
+DEVICE='cuda:0'
+python main_firstonlyRand.py --filename 3 --arch 56 --pretrained models/res56.best.pth.tar --device $DEVICE
+python BI_HalfRand.py --filename firstonly3 --arch 56 --pretrained models/56.firstRand.3.pth.tar --device $DEVICE
+python main_firstonly.py --filename again --arch 56 --pretrained models/res56.best.pth.tar --device $DEVICE
+python BI_Half.py --filename firstonlyagain --arch 56 --pretrained models/56.firstonly.again.pth.tar --device $DEVICE

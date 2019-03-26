@@ -87,7 +87,7 @@ class rDropout2D_bak(nn.Module):
         else:
             return Input
 
-class rDropout2D_all(nn.Module):
+class rDropout2D(nn.Module):
     """
     Dropout without multiplication
     """                            
@@ -103,7 +103,6 @@ class rDropout2D_all(nn.Module):
             for _ in range(self.dropnum):
                 index = int(torch.randint(0,theShape[1],[1]))
                 for i in range (len(Input)):
-                    i = 13
                     mean = Input[i,index,:,:].mean()
                     std =  Input[i,index,:,:].std()
                     size = Input[i,index,:,:].size()
@@ -112,7 +111,7 @@ class rDropout2D_all(nn.Module):
         else:
             return Input
 
-class rDropout2D(nn.Module):
+class rDropout2D_plus(nn.Module):
     """
     Dropout without multiplication
     """                            

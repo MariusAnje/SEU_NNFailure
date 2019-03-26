@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 import tqdm
 
-from models import resnetHalfRand as resnet
+from models import resnet
 import torchvision
 import torchvision.transforms as transforms
     
@@ -27,17 +27,17 @@ def load_pretrained(model, filePath, same):
         useKeys = useState_dict.keys()
         preKeys = preState_dict.keys()
         j = 0
-        for key in preKeys:
-            #print(useKeys[j],key )
-            useState_dict[useKeys[j]].data = preState_dict[key].data
-            j +=1
+        for key in useKeys:
+            if key.find('num_batches_tracked') == -1:
+                useState_dict[key].data = preState_dict[preKeys[j]].data
+                j +=1
      
     model.load_state_dict(useState_dict)
     
     for m in model.modules():
-        if isinstance(m, nn.Conv2d) and (m.in_channels == 3) and (not args.firstpretrained):
-            print(m)
-            m.weight.data.normal_(0, 0.05)        
+        if isinstance(m, nn.Conv2d) and (m.in_channels == 3):
+            m.weight.data.normal_(0, 0.05)
+                      
     
     return model, best_acc
 
@@ -52,7 +52,7 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/'+args.arch + '.firstRand.' + args.filename +'.pth.tar')
+    torch.save(state, 'models/'+args.arch + '.' + args.filename +'.pth.tar')
 
 def train(epoch):
     model.train()
@@ -125,7 +125,7 @@ if __name__=='__main__':
     parser.add_argument('--data', action='store', default='./data/',
             help='dataset path')
     parser.add_argument('--arch', action='store', default='56',
-            help='the architecture for the network: res56')
+            help='the architecture for the network: res20')
     parser.add_argument('--lr', action='store', default='0.1',
             help='the intial learning rate')
     parser.add_argument('--pretrained', action='store', default=None,#'nin.best.pth.tar',
@@ -138,8 +138,6 @@ if __name__=='__main__':
             help='additional file names')
     parser.add_argument('--test_only', action='store_true', default=False,
             help='only test')
-    parser.add_argument('--firstpretrained', action='store_true', default=False,
-            help='pretrain first layer')
     parser.add_argument('--same', action='store_true', default=False,
             help='if datas are the same')
     parser.add_argument('--all', action='store_true', default=False,
@@ -190,8 +188,7 @@ if __name__=='__main__':
         if (args.verbose):
             print('==> Load pretrained model form', args.pretrained, '...')
         model, best_acc = load_pretrained(model, args.pretrained, args.same)
-        if not args.firstpretrained:
-            best_acc = 0
+        best_acc = 0
     else:
         best_acc = 0
 
@@ -219,7 +216,7 @@ if __name__=='__main__':
                     'weight_decay':0.00001}]
 
 
-    optimizer = optim.SGD(params, lr = base_lr, momentum =0.9, weight_decay=1e-4)
+    optimizer = optim.SGD(params, lr = base_lr, momentum =0.9, weight_decay=1e-3)
     criterion = nn.CrossEntropyLoss()
 
 

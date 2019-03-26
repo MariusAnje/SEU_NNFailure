@@ -1,2 +1,3 @@
-python main_Crazy.py --pretrained models/res20.56.pth.tar --filename rand2 --device cuda:2
-python BI.py --pretrained models/56.rand2.crazy.pth.tar --filename rand2 --device cuda:2 --different
+DEVICE='cuda:0'
+python main_decay.py --filename decayfo  --pretrained models/res56.best.pth.tar --device $DEVICE --same
+python BI.py --pretrained models/56.decayfo.pth.tar --filename decayfo --device $DEVICE --different

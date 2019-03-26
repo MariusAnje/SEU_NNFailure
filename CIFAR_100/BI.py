@@ -208,7 +208,7 @@ if __name__=='__main__':
             with tqdm.tqdm(range(total)) as Loader:
                 start = time.time()
                 for i in Loader:
-                    acc = test(i, use_key, shape = shape, rand = rand, bypass = bypass, randFactor=randFactor, memoryData = memoryData， same=same)
+                    acc = test(i, use_key, shape = shape, rand = rand, bypass = bypass, randFactor=randFactor, memoryData = memoryData, same=same)
                     loss = bestAcc - acc
 
                     if (acc != 100):

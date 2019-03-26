@@ -6,14 +6,13 @@ import sys
 import os
 import torch
 import argparse
-import data
-import util_fuc as util
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
 
-from models import nin_halfaddRand as nin
-from torch.autograd import Variable
+from models import resnetHalfRand as resnet
+import torchvision
+import torchvision.transforms as transforms
     
 
 def load_pretrained(model, filePath, same):
@@ -28,17 +27,17 @@ def load_pretrained(model, filePath, same):
         useKeys = useState_dict.keys()
         preKeys = preState_dict.keys()
         j = 0
-        for key in useKeys:
-            if key.find('num_batches_tracked') == -1:
-                useState_dict[key].data = preState_dict[preKeys[j]].data
-                j +=1
+        for key in preKeys:
+            #print(useKeys[j],key )
+            useState_dict[useKeys[j]].data = preState_dict[key].data
+            j +=1
      
     model.load_state_dict(useState_dict)
     
     for m in model.modules():
         if isinstance(m, nn.Conv2d) and (m.in_channels == 3) and (not args.firstpretrained):
-            m.weight.data.normal_(0, 0.05)
-            m.bias.data.zero_()          
+            print(m)
+            m.weight.data.normal_(0, 0.05)        
     
     return model, best_acc
 
@@ -53,7 +52,7 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/'+args.arch + '_crazy.'+ args.filename +'.pth.tar')
+    torch.save(state, 'models/'+args.arch + '.Randall.' + args.filename +'.pth.tar')
 
 def train(epoch):
     model.train()
@@ -61,8 +60,6 @@ def train(epoch):
         tLoss = 0
         regC = 0.1
         for batch_idx, (data, target) in enumerate(Loader):
-            # process the weights including binarization
-            bin_op.binarization()
 
             # forwarding
             data, target = data.to(device), target.to(device)
@@ -70,18 +67,13 @@ def train(epoch):
             output = model(data)
 
             # backwarding
-            cLoss = criterion(output, target)
-            tLoss += cLoss
-            #regLoss = diff_reg(model)
-            #loss = cLoss + regC * max(regLoss, 0.5)
-            loss = cLoss
+            loss = criterion(output, target)
+            tLoss += loss
             #Loader.set_description("c: %.2f, r: %f"%(cLoss, regLoss))
-            Loader.set_description("c: %.2f"%(cLoss))
+            Loader.set_description("c: %.2f"%(loss))
             loss.backward()
 
             # restore weights
-            bin_op.restore()
-            bin_op.updateBinaryGradWeight()
 
             optimizer.step()
             if batch_idx % 100 == 0 and (args.verbose):
@@ -96,7 +88,6 @@ def test():
     model.eval()
     test_loss = 0
     correct = 0
-    bin_op.binarization()
     for data, target in testloader:
         data, target = data.to(device), target.to(device)
                                     
@@ -104,7 +95,6 @@ def test():
         test_loss += criterion(output, target).data.item()
         pred = output.data.max(1, keepdim=True)[1]
         correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-    bin_op.restore()
     acc = 100. * float(correct) / float(len(testloader.dataset))
 
     if acc > best_acc:
@@ -120,9 +110,9 @@ def test():
     
     return acc, best_acc
 
-def adjust_learning_rate(optimizer, epoch):
-    update_list = [120, 200, 240, 280]
-    if epoch in update_list:
+def adjust_learning_rate(optimizer, epoch, flag):
+    update_list = [80, 120, 200]
+    if (epoch in update_list) or flag:
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
     return
@@ -134,9 +124,9 @@ if __name__=='__main__':
             help='set if only CPU is available')
     parser.add_argument('--data', action='store', default='./data/',
             help='dataset path')
-    parser.add_argument('--arch', action='store', default='nin',
-            help='the architecture for the network: nin')
-    parser.add_argument('--lr', action='store', default='0.01',
+    parser.add_argument('--arch', action='store', default='56',
+            help='the architecture for the network: res56')
+    parser.add_argument('--lr', action='store', default='0.1',
             help='the intial learning rate')
     parser.add_argument('--pretrained', action='store', default=None,#'nin.best.pth.tar',
             help='the path to the pretrained model')
@@ -148,70 +138,68 @@ if __name__=='__main__':
             help='additional file names')
     parser.add_argument('--test_only', action='store_true', default=False,
             help='only test')
+    parser.add_argument('--firstpretrained', action='store_true', default=False,
+            help='pretrain first layer')
     parser.add_argument('--same', action='store_true', default=False,
             help='if datas are the same')
-    parser.add_argument('--firstpretrained', action='store_true', default=False,
-            help='if use pretrained first layers')
     parser.add_argument('--all', action='store_true', default=False,
             help='if retrain all of them')
     args = parser.parse_args()
     
     if (args.verbose):
         print('==> Options:',args)
+    if (args.cpu) or (args.device == 'cpu'):
+        args.device = 'cpu'
+        args.cpu = True
 
     # set the seed
     torch.manual_seed(1)
     torch.cuda.manual_seed(1)
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
-    # prepare the data
-    if not os.path.isfile(args.data+'/train_data'):
-        # check the data path
-        raise Exception\
-                ('Please assign the correct data path with --data <DATA_PATH>')
+    normalize = transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
 
-    trainset = data.dataset(root=args.data, train=True)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
-            shuffle=True, num_workers=4)
+    train_dataset = torchvision.datasets.CIFAR100(
+        root=args.data,
+        train=True,
+        download=True,
+        transform=transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ]))
+    trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4)
 
-    testset = data.dataset(root=args.data, train=False)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=512,
-            shuffle=False, num_workers=4)
-
-    # define classes
-    classes = ('plane', 'car', 'bird', 'cat',
-            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    test_dataset = torchvision.datasets.CIFAR100(
+        root=args.data,
+        train=False,
+        download=True,
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ]))
+    testloader = torch.utils.data.DataLoader(test_dataset, batch_size=1024, shuffle=False, num_workers=4)
 
     # define the model
-    if (args.verbose):
-        print('==> building model',args.arch,'...')
-    if args.arch == 'nin':
-        model = nin.randNet()
-    if args.arch == 'rand':
-        model = nin.randNet()
-    else:
-        raise Exception(args.arch+' is currently not supported')
+    if args.arch == '56':
+        model = resnet.resnet56_cifar(num_classes=100)
 
     # initialize the model
-    if not args.pretrained:
-        if (args.verbose):
-            print('==> Initializing model parameters ...')
-        best_acc = 0
-        for m in model.modules():
-            if isinstance(m, nn.Conv2d):
-                m.weight.data.normal_(0, 0.05)
-                m.bias.data.zero_()
-    else:
+    if args.pretrained:
         if (args.verbose):
             print('==> Load pretrained model form', args.pretrained, '...')
         model, best_acc = load_pretrained(model, args.pretrained, args.same)
         if not args.firstpretrained:
             best_acc = 0
+    else:
+        best_acc = 0
 
     if not args.cpu:
         model.to(device)
-        if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0, 2, 3])
+        #if args.device == 'cuda:0':
+        #    model = torch.nn.DataParallel(model, device_ids=[0,2,3])
+            
     if (args.verbose):
         print(model)
 
@@ -219,16 +207,15 @@ if __name__=='__main__':
     base_lr = float(args.lr)
     param_dict = dict(model.named_parameters())
     params = []
-
+    
     for key, value in param_dict.items():
         params += [{'params':[value], 'lr': base_lr,
             'weight_decay':0.00001}]
-        
-    optimizer = optim.Adam(params, lr=0.10,weight_decay=0.00001)
+
+
+    optimizer = optim.SGD(params, lr = base_lr, momentum =0.9, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
 
-    # define the binarization operator
-    bin_op = util.BinOp(model)
 
     # do the evaluation if specified
     if args.test_only:
@@ -238,8 +225,20 @@ if __name__=='__main__':
 
     # start training
     with tqdm.tqdm(range(1, 320)) as Loader:
+        best_loss = 10000
+        flag_count = 0
+        flag = False
         for epoch in Loader:
-            adjust_learning_rate(optimizer, epoch)
             avg = train(epoch)
+            if avg > best_loss:
+                flag_count += 1
+            else:
+                best_loss = avg
+            if flag_count == 10:
+                flag = True
+                flag_count = 0
+            adjust_learning_rate(optimizer, epoch, flag)
+            if flag:
+                flag = False
             acc, bacc = test()
             Loader.set_description("loss: %.2f acc: %.2f best_acc: %.2f"%(avg, acc, bacc))
