@@ -1,12 +1,12 @@
 ResNets are VERY sensitive to SEU, interesting
-Res56  28.09% -0.44%
+Res56  31.25% 0.54%
 Res110 39.56% +0.01%
 
 BZ == halfPretrained
 7.78% 0.12%
 
 orgigin
-nothing 28.09% -0.44%
+nothing 31.25% 0.54%
 rand1  27.80% 0.46%
 rand2  27.60% 0.50%
 

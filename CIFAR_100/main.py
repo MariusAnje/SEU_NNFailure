@@ -111,7 +111,7 @@ def test():
     return acc, best_acc
 
 def adjust_learning_rate(optimizer, epoch, flag):
-    update_list = [80, 120, 200]
+    update_list = [80, 120, 200, 240, 280]
     if (epoch in update_list) or flag:
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
@@ -124,7 +124,7 @@ if __name__=='__main__':
             help='set if only CPU is available')
     parser.add_argument('--data', action='store', default='./data/',
             help='dataset path')
-    parser.add_argument('--arch', action='store', default='res20',
+    parser.add_argument('--arch', action='store', default='56',
             help='the architecture for the network: res20')
     parser.add_argument('--lr', action='store', default='0.1',
             help='the intial learning rate')
@@ -180,7 +180,8 @@ if __name__=='__main__':
     testloader = torch.utils.data.DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     # define the model
-    model = resnet.resnet164_cifar(num_classes=100)
+    if args.arch == '56':
+        model = resnet.resnet56_cifar(num_classes=100)
 
     # initialize the model
     if args.pretrained:
