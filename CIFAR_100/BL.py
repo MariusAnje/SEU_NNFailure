@@ -178,9 +178,8 @@ if __name__=='__main__':
         state_dict = model.state_dict()
         keyList = []
         for key in state_dict.keys():
-            if key.find('conv1') != -1:
+            if key.find('weight') != -1 and key.find('bn') == -1 and key.find('downsample') == -1:
                 keyList += [key]
-                break
         print(keyList)
 
         for find_key in keyList:
@@ -225,7 +224,9 @@ if __name__=='__main__':
                     if (end - start > 300):
                         np.save(find_key+'.'+args.arch+args.filename+'_tmp',save)
                         start = end
+                    if acc <= 1.01:
+                        break
 
-            np.save(find_key+'.'+args.arch+'.'+args.filename+'.neg', save)
+            np.save(find_key+'.'+args.arch+'.'+args.filename+'.BL128', save)
             print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()
