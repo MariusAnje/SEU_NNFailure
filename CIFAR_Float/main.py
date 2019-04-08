@@ -9,37 +9,11 @@ import argparse
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
-
-from models import resnet
 import torchvision
 import torchvision.transforms as transforms
-    
-
-def load_pretrained(model, filePath, same):
-    pretrained_model = torch.load(filePath)
-    useState_dict = model.state_dict()
-    preState_dict = pretrained_model['state_dict']
-    best_acc = pretrained_model['best_acc']
-    #print(pretrained_model['best_acc'])
-    if same:
-        useState_dict = preState_dict
-    else:
-        useKeys = useState_dict.keys()
-        preKeys = preState_dict.keys()
-        j = 0
-        for key in useKeys:
-            if key.find('num_batches_tracked') == -1:
-                useState_dict[key].data = preState_dict[preKeys[j]].data
-                j +=1
-     
-    model.load_state_dict(useState_dict)
-    
-    for m in model.modules():
-        if isinstance(m, nn.Conv2d) and (m.in_channels == 3) and (not args.firstpretrained):
-            m.weight.data.normal_(0, 0.05)
-            m.bias.data.zero_()          
-    
-    return model, best_acc
+import numpy as np
+import torch.nn.functional as F
+import models
 
 def save_state(model, best_acc):
     if (args.verbose):
@@ -52,11 +26,11 @@ def save_state(model, best_acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/'+args.arch + '.' + args.filename +'.pth.tar')
+    torch.save(state, args.arch + '.' + args.filename +'.pth.tar')
 
 def train(epoch):
     model.train()
-    with tqdm.tqdm(trainloader, leave = False) as Loader:
+    with tqdm.tqdm(trainloader) as Loader:
         tLoss = 0
         regC = 0.1
         for batch_idx, (data, target) in enumerate(Loader):
@@ -110,9 +84,9 @@ def test():
     
     return acc, best_acc
 
-def adjust_learning_rate(optimizer, epoch, flag):
-    update_list = [80, 120, 200, 240, 280]
-    if (epoch in update_list) or flag:
+def adjust_learning_rate(optimizer, epoch):
+    update_list = [120, 200, 240, 280]
+    if epoch in update_list:
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
     return
@@ -124,9 +98,9 @@ if __name__=='__main__':
             help='set if only CPU is available')
     parser.add_argument('--data', action='store', default='./data/',
             help='dataset path')
-    parser.add_argument('--arch', action='store', default='56',
-            help='the architecture for the network: res20')
-    parser.add_argument('--lr', action='store', default='0.1',
+    parser.add_argument('--arch', action='store', default='nin',
+            help='the architecture for the network: network in network')
+    parser.add_argument('--lr', action='store', default='0.001',
             help='the intial learning rate')
     parser.add_argument('--pretrained', action='store', default=None,#'nin.best.pth.tar',
             help='the path to the pretrained model')
@@ -155,94 +129,59 @@ if __name__=='__main__':
     torch.cuda.manual_seed(1)
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
-    normalize = transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
 
-    train_dataset = torchvision.datasets.CIFAR100(
-        root=args.data,
-        train=True,
-        download=True,
-        transform=transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
-    trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=96, shuffle=True, num_workers=4)
 
-    test_dataset = torchvision.datasets.CIFAR100(
-        root=args.data,
-        train=False,
-        download=True,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ]))
-    testloader = torch.utils.data.DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    # define the model
-    if args.arch == '20':
-        model = resnet.resnet20_cifar(num_classes=100)
-    if args.arch == '56':
-        model = resnet.resnet56_cifar(num_classes=100)
-    if args.arch == '110':
-        model = resnet.resnet110_cifar(num_classes=100)
-    if args.arch == '164':
-        model = resnet.resnet164_cifar(num_classes=100)
-    if args.arch == '1001':
-        model = resnet.resnet1001_cifar(num_classes=100)
+    trainset = torchvision.datasets.CIFAR10(root='../CIFAR_10/data', train=True,
+                                            download=False, transform=transform)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
+                                              shuffle=True, num_workers=2, pin_memory=True)
 
-    # initialize the model
-    if args.pretrained:
-        if (args.verbose):
-            print('==> Load pretrained model form', args.pretrained, '...')
-        model, best_acc = load_pretrained(model, args.pretrained, args.same)
-        if not args.firstpretrained:
-            best_acc = 0
-    else:
-        best_acc = 0
-        for m in model.modules():
-            if isinstance(m, nn.Conv2d):
-                m.weight.data.normal_(0, 0.05)
+    testset = torchvision.datasets.CIFAR10(root='../CIFAR_10/data', train=False,
+                                           download=False, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=128,
+                                             shuffle=False, num_workers=2, pin_memory=True)
 
-    if not args.cpu:
-        model.to(device)
-        if args.device == 'cuda:0':
-            model = torch.nn.DataParallel(model, device_ids=[0,3])
-            
-    if (args.verbose):
-        print(model)
+    classes = ('plane', 'car', 'bird', 'cat',
+               'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-    # define solver and criterion
+    model = models.nin()
+    model.to(device)
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            m.weight.data.normal_(0, 0.05)
+            m.bias.data.normal_(0, 0.0)
+    
+    criterion = nn.CrossEntropyLoss()
     base_lr = float(args.lr)
+    base_lr = 0.1
     param_dict = dict(model.named_parameters())
     params = []
 
-    optimizer = optim.SGD(model.parameters(), lr = base_lr, momentum =0.9, weight_decay=1e-5)
-    criterion = nn.CrossEntropyLoss()
+    for key, value in param_dict.items():
+        if key == 'classifier.20.weight':
+            params += [{'params':[value], 'lr':0.1 * base_lr, 
+                'momentum':0.95, 'weight_decay':0.0001}]
+        elif key == 'classifier.20.bias':
+            params += [{'params':[value], 'lr':0.1 * base_lr, 
+                'momentum':0.95, 'weight_decay':0.0000}]
+        elif 'weight' in key:
+            params += [{'params':[value], 'lr':1.0 * base_lr,
+                'momentum':0.95, 'weight_decay':0.0001}]
+        else:
+            params += [{'params':[value], 'lr':2.0 * base_lr,
+                'momentum':0.95, 'weight_decay':0.0000}]
 
-
-    # do the evaluation if specified
-    if args.test_only:
-        acc, bacc = test()
-        print(acc)
-        exit(0)
-
-    # start training
+    optimizer = optim.SGD(params, lr=0.1, momentum=0.9)
+    
     with tqdm.tqdm(range(1, 320)) as Loader:
+        best_acc = 0
         best_loss = 10000
-        flag_count = 0
-        flag = False
         for epoch in Loader:
+            adjust_learning_rate(optimizer, epoch)
             avg = train(epoch)
-            if avg > best_loss:
-                flag_count += 1
-            else:
-                best_loss = avg
-            if flag_count == 10:
-                flag = True
-                flag_count = 0
-            adjust_learning_rate(optimizer, epoch, flag)
-            if flag:
-                flag = False
             acc, bacc = test()
             Loader.set_description("loss: %.2f acc: %.2f best_acc: %.2f"%(avg, acc, bacc))

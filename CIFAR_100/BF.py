@@ -16,15 +16,19 @@ import tqdm
 import time
 import numpy as np
 
+def BI(Num, bit):
+    aNum = Num.abs()
+    Ex = int(aNum.log2())
+    Frac = aNum / pow(2.,Ex) - 1
+    FracB = int(Frac * pow(2.,bit))%2
+    Num = (Num/aNum)*(aNum + ((-1)**FracB)*pow(2.,-bit))
+    return Num
+
 def load_pretrained(filePath, same):
-    if args.arch == '20':
-        model = resnet.resnet20_cifar(num_classes=100)
     if args.arch == '56':
         model = resnet.resnet56_cifar(num_classes=100)
     if args.arch == '110':
         model = resnet.resnet110_cifar(num_classes=100)
-    if args.arch == '164':
-        model = resnet.resnet164_cifar(num_classes=100)
         
     pretrained_model = torch.load(filePath)
     useState_dict = model.state_dict()
@@ -49,6 +53,7 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
     global best_acc
     test_loss = 0
     correct = 0
+    Flip = int(args.bit)
     if (not rand) or (len(shape) != 4):
         model, best_acc = load_pretrained(args.pretrained, same)
         model.to(device)
@@ -71,13 +76,13 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
                     model.to(device)
                     model.eval()
                     state_dict = model.state_dict()
-                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]) = BI(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)], Flip)
                 else:
                     return 100
             else:
                 return 100
         else:
-            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]) = BI(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)], Flip)
 
     if len(shape) == 1:
         if rand:
@@ -85,11 +90,11 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
                 model, best_acc = load_pretrained(args.pretrained, same)
                 model.to(device)
                 model.eval()
-                state_dict[key][i].mul_(-1)
+                state_dict[key][i] = BI(state_dict[key][i], Flip)
             else:
                 return 100
         else:
-            state_dict[key][i].mul_(-1)
+            state_dict[key][i] = BI(state_dict[key][i], Flip)
 
     if len(shape) == 2:
         size = state_dict[key].shape[1]
@@ -98,11 +103,11 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
                 model, best_acc = load_pretrained(args.pretrained, same)
                 model.to(device)
                 model.eval()
-                (state_dict[key][int(i/size)][i%size]).mul_(-1)
+                (state_dict[key][int(i/size)][i%size]) = BI(state_dict[key][int(i/size)][i%size] ,Flip)
             else:
                 return 100
         else:
-            (state_dict[key][int(i/size)][i%size]).mul_(-1)
+            (state_dict[key][int(i/size)][i%size]) = BI(state_dict[key][int(i/size)][i%size] ,Flip)
             
     with torch.no_grad():
         for data, target in memoryData:
@@ -137,6 +142,9 @@ if __name__=='__main__':
             help='resnet numbers')
     parser.add_argument('--batch_size', action='store', default='1024',
             help='batch size')
+    parser.add_argument('--bit', action='store', default='1',
+            help='flip bit')
+    
     args = parser.parse_args()
     if args.verbose:
         print('==> Options:',args)
@@ -182,12 +190,10 @@ if __name__=='__main__':
         state_dict = model.state_dict()
         keyList = []
         for key in state_dict.keys():
-            #print(key)
-            if key.find('fc.weight') != -1:
+            if key.find('layer1.') != -1 and (key.find('.weight') != -1) and key.find('bn') == -1 and key.find('downsample') == -1:
                 keyList += [key]
-        keyList = ['bn1.bias','layer1.0.bn1.bias', 'layer2.0.bn1.bias','layer3.0.bn1.bias','fc.bias']
-        keyList = ['conv1.weight']
-        print (keyList)
+
+        print(keyList)
 
         for find_key in keyList:
             rand = False
@@ -219,19 +225,22 @@ if __name__=='__main__':
 
                     if (acc != 100):
                         count += 1
-                        lAvg  = tLoss / float(count)
                         tLoss += loss
+                        lAvg  = tLoss / float(count)
                         save.append((i,loss))
+                        if (loss > lMax):
+                            lMax = loss
                         Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
 
-                    if (loss > lMax):
-                        lMax = loss
+                    
 
                     end = time.time()
                     if (end - start > 300):
                         np.save(find_key+'.'+args.arch+args.filename+'_tmp',save)
                         start = end
+                    if acc <= 1.01:
+                        break
 
-            np.save(find_key+'.'+args.arch+'.'+args.filename+'.neg', save)
+            np.save(find_key+'.'+args.arch+'.'+args.filename+'.BF'+args.bit, save)
             print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()

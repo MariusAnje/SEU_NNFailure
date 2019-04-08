@@ -16,6 +16,25 @@ import tqdm
 import time
 import numpy as np
 
+def BI(Num, Base):
+    if Num != 0:
+        Exp = int(torch.log2(Num.abs())) + 127
+        Bi = int(Exp / Base) % 2
+        if Base == 128:
+            scale = pow(2., Base - 1)
+            if Bi == 1:
+                return Num / scale / 2.
+            else:
+                return Num * scale * 2.
+        else:
+            scale = pow(2., Base)
+            if Bi == 1:
+                return Num / scale
+            else:
+                return Num * scale
+    else:
+        return Num * scale
+
 def load_pretrained(filePath, same):
     if args.arch == '56':
         model = resnet.resnet56_cifar(num_classes=100)
@@ -45,6 +64,7 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
     global best_acc
     test_loss = 0
     correct = 0
+    Flip = int(args.bit)
     if (not rand) or (len(shape) != 4):
         model, best_acc = load_pretrained(args.pretrained, same)
         model.to(device)
@@ -67,13 +87,13 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
                     model.to(device)
                     model.eval()
                     state_dict = model.state_dict()
-                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(pow(2,128))
+                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]) = BI(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)], Flip)
                 else:
                     return 100
             else:
                 return 100
         else:
-            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(pow(2.,128))
+            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]) = BI(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)], Flip)
 
     if len(shape) == 1:
         if rand:
@@ -81,11 +101,11 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
                 model, best_acc = load_pretrained(args.pretrained, same)
                 model.to(device)
                 model.eval()
-                state_dict[key][i].mul_(pow(2,128))
+                state_dict[key][i] = BI(state_dict[key][i], Flip)
             else:
                 return 100
         else:
-            state_dict[key][i].mul_(pow(2,128))
+            state_dict[key][i] = BI(state_dict[key][i], Flip)
 
     if len(shape) == 2:
         size = state_dict[key].shape[1]
@@ -94,11 +114,11 @@ def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryD
                 model, best_acc = load_pretrained(args.pretrained, same)
                 model.to(device)
                 model.eval()
-                (state_dict[key][int(i/size)][i%size]).mul_(pow(2,128))
+                (state_dict[key][int(i/size)][i%size]) = BI(state_dict[key][int(i/size)][i%size] ,Flip)
             else:
                 return 100
         else:
-            (state_dict[key][int(i/size)][i%size]).mul_(pow(2,128))
+            (state_dict[key][int(i/size)][i%size]) = BI(state_dict[key][int(i/size)][i%size] ,Flip)
             
     with torch.no_grad():
         for data, target in memoryData:
@@ -133,6 +153,9 @@ if __name__=='__main__':
             help='resnet numbers')
     parser.add_argument('--batch_size', action='store', default='1024',
             help='batch size')
+    parser.add_argument('--bit', action='store', default='128',
+            help='flip bit')
+    
     args = parser.parse_args()
     if args.verbose:
         print('==> Options:',args)
@@ -180,6 +203,7 @@ if __name__=='__main__':
         for key in state_dict.keys():
             if key.find('weight') != -1 and key.find('bn') == -1 and key.find('downsample') == -1:
                 keyList += [key]
+        keyList = ['fc.bias']
         print(keyList)
 
         for find_key in keyList:
@@ -212,13 +236,14 @@ if __name__=='__main__':
 
                     if (acc != 100):
                         count += 1
-                        lAvg  = tLoss / float(count)
                         tLoss += loss
+                        lAvg  = tLoss / float(count)
                         save.append((i,loss))
+                        if (loss > lMax):
+                            lMax = loss
                         Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
 
-                    if (loss > lMax):
-                        lMax = loss
+                    
 
                     end = time.time()
                     if (end - start > 300):
@@ -227,6 +252,6 @@ if __name__=='__main__':
                     if acc <= 1.01:
                         break
 
-            np.save(find_key+'.'+args.arch+'.'+args.filename+'.BL128', save)
+            np.save(find_key+'.'+args.arch+'.'+args.filename+'.BL'+args.bit, save)
             print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
         exit()

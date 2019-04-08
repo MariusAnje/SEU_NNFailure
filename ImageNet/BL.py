@@ -16,9 +16,31 @@ import tqdm
 import time
 import numpy as np
 
-def test(i, key, shape, rand = False, randFactor = None, memoryData = None):
+def BI(Num, Base):
+    if Num != 0:
+        Exp = int(torch.log2(Num.abs())) + 127
+        Bi = int(Exp / Base) % 2
+        if Base == 128:
+            scale = pow(2., Base - 1)
+            if Bi == 1:
+                return Num / scale / 2.
+            else:
+                return Num * scale * 2.
+        else:
+            scale = pow(2., Base)
+            if Bi == 1:
+                return Num / scale
+            else:
+                return Num * scale
+    else:
+        return Num * scale
+
+def test(i, key, shape, rand = False, bypass = False, randFactor = None, memoryData = None, same = False):
     global best_acc
-    if rand == False:
+    test_loss = 0
+    correct = 0
+    Flip = int(args.bit)
+    if (not rand) or (len(shape) != 4):
         model = Pytorch_VGG.vgg16(pretrained = True)
         model.to(device)
         model.eval()
@@ -30,7 +52,7 @@ def test(i, key, shape, rand = False, randFactor = None, memoryData = None):
         size2 = shape[2]
         size3 = shape[3]
         if rand:
-            if (int(i/(size2*size3))%int(size1)) == torch.randint(0,size1-1,[1]):
+            if ((int(i/(size2*size3))%int(size1)) == torch.randint(0,size1-1,[1]) or bypass):
                 try:
                     flag = int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])
                 except:
@@ -40,13 +62,13 @@ def test(i, key, shape, rand = False, randFactor = None, memoryData = None):
                     model.to(device)
                     model.eval()
                     state_dict = model.state_dict()
-                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+                    (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]) = BI(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)], Flip)
                 else:
                     return 100
             else:
                 return 100
         else:
-            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]).mul_(-1)
+            (state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)]) = BI(state_dict[key][int(i/size1/size2/size3)][int(i/size2/size3%size1)][int(i/size3%size2)][int(i%size3)], Flip)
 
     if len(shape) == 1:
         if rand:
@@ -54,39 +76,36 @@ def test(i, key, shape, rand = False, randFactor = None, memoryData = None):
                 model = Pytorch_VGG.vgg16(pretrained = True)
                 model.to(device)
                 model.eval()
-                state_dict[key][i].mul_(-1)
+                state_dict[key][i] = BI(state_dict[key][i], Flip)
             else:
                 return 100
         else:
-            state_dict[key][i].mul_(-1)
+            state_dict[key][i] = BI(state_dict[key][i], Flip)
 
     if len(shape) == 2:
         size = state_dict[key].shape[1]
+        """
         if rand:
             if (int(int(i)%randFactor) == torch.randint(0,randFactor-1,[1])):
                 model = Pytorch_VGG.vgg16(pretrained = True)
                 model.to(device)
                 model.eval()
-                (state_dict[key][int(i/size)][i%size]).mul_(-1)
+                (state_dict[key][int(i/size)][i%size]) = BI(state_dict[key][int(i/size)][i%size] ,Flip)
             else:
                 return 100
         else:
-            (state_dict[key][int(i/size)][i%size]).mul_(-1)
+        """
+        (state_dict[key][int(i/size)][i%size]) = BI(state_dict[key][int(i/size)][i%size] ,Flip)
             
-    theIter = 0
-    correct = 0
-    totalItems = 0
     with torch.no_grad():
-        for data in tqdm.tqdm(memoryData, leave = False):
-            if theIter%testFactor == 0:
-                images, labels = data
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                _, predicted = torch.max(outputs.data, 1)
-                totalItems += labels.size(0)
-                correct += (predicted == labels).sum().item()
-            theIter += 1
-    acc = float(correct) / float(totalItems) * 100
+        for data, target in tqdm.tqdm(memoryData):
+            data, target = data.to(device), target.to(device)
+
+            output = model(data)
+            pred = output.data.max(1, keepdim=True)[1]
+            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+    acc = 100. * float(correct) / float(len(val_loader.dataset))
+    #print (acc,correct,len(testloader.dataset))
     return acc
 
 
@@ -109,6 +128,8 @@ if __name__=='__main__':
             help='display more information')
     parser.add_argument('--device', action='store', default='cuda:3',
             help='input the device you want to use')
+    parser.add_argument('--bit', action='store', default='16',
+            help='bit to flip')
     args = parser.parse_args()
     if args.verbose:
         print('==> Options:',args)
@@ -134,7 +155,7 @@ if __name__=='__main__':
                 normalize,
             ])), indices),
         batch_size=64, shuffle=False,
-        num_workers=8, pin_memory=True)
+        num_workers=8, pin_memory=False)
     
     model = Pytorch_VGG.vgg16(pretrained = True)
     
@@ -144,15 +165,15 @@ if __name__=='__main__':
     if args.verbose:
         print(model)
         
-    
+    #key_list = ["features.0.weight","features.2.weight", "features.5.weight","features.7.weight", "features.10.weight", "classifier.6.weight" ]
+    key_list = ["features.0.weight" ]
     memoryData = []
     for data in tqdm.tqdm(val_loader, leave = False):
             memoryData += [data]
-    keyList = ["features.0.bias","features.2.bias", "features.5.bias","features.7.bias", "features.10.bias", "classifier.6.bias" ]
     
-    for find_key in keyList:
-        rand = False
-        randFactor = 4
+    for find_key in key_list:
+        rand = True
+        randFactor = 1
         testFactor = 1
         count = 0
         tLoss = 0
@@ -162,7 +183,7 @@ if __name__=='__main__':
         save = []
         
 
-        #find_key = "features.10.weight"
+        #find_key = "features.0.weight"
         print(find_key)
         state_dict = model.state_dict()
 
@@ -173,8 +194,16 @@ if __name__=='__main__':
                 use_key = key
                 for t in range(len(state_dict[key].shape)):
                     total *= state_dict[key].shape[t]
+        
 
-        with tqdm.tqdm(range(total)) as Loader:
+        i_list = range(total)
+        if rand and len(shape) == 2:
+            i_list = []
+            for i in range(int(total/randFactor)):
+                theRand = np.random.randint(0,randFactor)
+                i_list +=[i*randFactor + theRand]
+        print(len(i_list))
+        with tqdm.tqdm(i_list) as Loader:
             start = time.time()
             for i in Loader:
                 acc = test(i, use_key, shape = shape, rand = rand, randFactor=randFactor, memoryData = memoryData)
@@ -182,8 +211,8 @@ if __name__=='__main__':
 
                 if (acc != 100):
                     count += 1
-                    lAvg  = tLoss / float(count)
                     tLoss += loss
+                    lAvg  = tLoss / float(count)
                     save.append((i,loss))
                     if (loss > lMax):
                         lMax = loss
@@ -195,7 +224,9 @@ if __name__=='__main__':
                 if (end - start > 300):
                     np.save(find_key+'_tmp',save)
                     start = end
+                if acc < 0.13:
+                    break
 
-        np.save(find_key+'.neg', save)
+        np.save(find_key+'.BL'+args.bit, save)
         print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
     exit()

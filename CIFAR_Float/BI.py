@@ -107,7 +107,7 @@ if __name__=='__main__':
             help='the path to the pretrained model')
     parser.add_argument('--verbose', action='store_true', default=False,
             help='display more information')
-    parser.add_argument('--device', action='store', default='cuda:1',
+    parser.add_argument('--device', action='store', default='cuda:3',
             help='input the device you want to use')
     args = parser.parse_args()
     if args.verbose:
@@ -142,55 +142,61 @@ if __name__=='__main__':
     if args.verbose:
         print(model)
 
-    rand = True
-    bypass = True
-    randFactor =4
-    testFactor = 1
-    count = 0
-    tLoss = 0
-    lMax = 0
-    lAvg = 0
-    bestAcc = 88.51
-    save = []
     memoryData = []
-
-    find_key = "classifier.16.weight"
-    print(find_key)
-    state_dict = model.state_dict()
-
-    for key in state_dict.keys():
-        if key.find(find_key) != -1:
-            total = 1
-            shape = state_dict[key].shape
-            use_key = key
-            for t in range(len(state_dict[key].shape)):
-                total *= state_dict[key].shape[t]
-    
-
     for data in tqdm.tqdm(testloader, leave = False):
         memoryData += [data]
+    
+    key_list = ["classifier.0.bias", "classifier.2.bias", "classifier.4.bias", "classifier.8.bias", "classifier.10.bias", "classifier.20.bias"]
+    #key_list = ["classifer.0.weight"]
+    
+    for find_key in key_list:
+        rand = False
+        bypass = False
+        randFactor =4
+        testFactor = 1
+        count = 0
+        tLoss = 0
+        lMax = 0
+        lAvg = 0
+        bestAcc = 88.51
+        save = []
 
-    with tqdm.tqdm(range(total)) as Loader:
-        start = time.time()
-        for i in Loader:
-            acc = test(i, use_key, shape = shape, rand = rand, bypass = bypass, randFactor=randFactor, memoryData = memoryData)
-            loss = bestAcc - acc
 
-            if (acc != 100):
-                count += 1
-                tLoss += loss
-                lAvg  = tLoss / float(count)
-                save.append((i,loss))
-                Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
+        #find_key = "classifier.0.weight"
+        print(find_key)
+        state_dict = model.state_dict()
 
-            if (loss > lMax):
-                lMax = loss
+        for key in state_dict.keys():
+            #print(key)
+            if key.find(find_key) != -1:
+                total = 1
+                shape = state_dict[key].shape
+                use_key = key
+                for t in range(len(state_dict[key].shape)):
+                    total *= state_dict[key].shape[t]   
 
-            end = time.time()
-            if (end - start > 300):
-                np.save(find_key+'_tmp',save)
-                start = end
+        with tqdm.tqdm(range(total)) as Loader:
+            start = time.time()
+            for i in Loader:
+                acc = test(i, use_key, shape = shape, rand = rand, bypass = bypass, randFactor=randFactor, memoryData = memoryData)
+                loss = bestAcc - acc
 
-    np.save(find_key+'.neg', save)
-    print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
+                if (acc != 100):
+                    count += 1
+                    tLoss += loss
+                    lAvg  = tLoss / float(count)
+                    save.append((i,loss))
+                    if (loss > lMax):
+                        lMax = loss
+                    Loader.set_description("T: %d, Av: %.2f%%, M: %.2f%%"%(count, lAvg, lMax))
+
+                end = time.time()
+                if (end - start > 300):
+                    np.save(find_key+'_tmp',save)
+                    start = end
+                if acc < 10.01:
+                    break
+
+        np.save(find_key+'.neg', save)
+        print ("lAvg = %f%%, Max = %f%%"%(lAvg, lMax))
     exit()

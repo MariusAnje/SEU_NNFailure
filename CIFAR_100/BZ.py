@@ -181,6 +181,8 @@ if __name__=='__main__':
             if key.find('conv1') != -1:
                 keyList += [key]
                 break
+        
+        keyList = ['conv1.weight', 'layer1.0.conv1.weight', 'layer1.1.conv1.weight', 'layer1.2.conv1.weight', 'layer1.7.conv1.weight', 'layer1.8.conv1.weight', 'layer2.0.conv1.weight', 'layer2.8.conv1.weight', 'layer3.0.conv1.weight', 'layer3.8.conv1.weight', 'fc.weight']
         print(keyList)
 
         for find_key in keyList:

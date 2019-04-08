@@ -1,3 +1,4 @@
+python BL.py --bit 128
 python BL.py --bit 64
 python BL.py --bit 32
 python BL.py --bit 16
